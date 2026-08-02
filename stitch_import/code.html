@@ -1,0 +1,79 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>DIVA - Elegance Redefined</title>
+<!-- Tailwind Config injected from system prompt -->
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-secondary-fixed-variant": "#464748", "on-secondary": "#ffffff", "inverse-surface": "#2f3130", "on-background": "#1a1c1b", "inverse-primary": "#e8c176", "primary-fixed-dim": "#e8c176", "on-primary": "#ffffff", background: "#faf9f7", "tertiary-fixed-dim": "#c6c7c5", surface: "#faf9f7", error: "#ba1a1a", "tertiary-container": "#5d5f5d", "surface-container-lowest": "#ffffff", "surface-container-high": "#e9e8e6", "secondary-container": "#e1dfe0", "on-secondary-container": "#626263", "inverse-on-surface": "#f1f1ef", "outline-variant": "#d1c5b4", primary: "#5d4300", "surface-bright": "#faf9f7", "surface-container": "#efeeec", "on-tertiary-fixed": "#1a1c1b", "secondary-fixed": "#e4e2e3", tertiary: "#464746", "on-tertiary-fixed-variant": "#454746", "error-container": "#ffdad6", "secondary-fixed-dim": "#c7c6c7", "primary-container": "#775a19", "surface-dim": "#dadad8", "on-surface": "#1a1c1b", "surface-tint": "#775a19", "on-error": "#ffffff", "surface-variant": "#e3e2e0", "on-surface-variant": "#4d4639", secondary: "#5e5e5f", outline: "#7f7667", "surface-container-highest": "#e3e2e0", "on-primary-fixed": "#261900", "on-primary-fixed-variant": "#5c4200", "on-error-container": "#93000a", "on-secondary-fixed": "#1b1c1d", "on-tertiary": "#ffffff", "on-primary-container": "#fcd386", "primary-fixed": "#ffdea3", "surface-container-low": "#f4f3f1", "on-tertiary-container": "#d9d9d7", "tertiary-fixed": "#e2e3e0"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, spacing: {gutter: "2rem", xxl: "48px", xl: "32px", lg: "24px", base: "8px", "container-margin-mobile": "20px", md: "16px", sm: "8px", xs: "4px", "container-margin-desktop": "64px", "stack-sm": "0.5rem", "stack-lg": "2rem", "section-gap": "8rem", "margin-desktop": "5rem", "margin-mobile": "1.5rem", "stack-md": "1rem"}, fontFamily: {"display-lg": ["Playfair Display"], "label-sm": ["Manrope"], "headline-md": ["Playfair Display"], "headline-lg": ["Playfair Display"], "title-md": ["Poppins"], "headline-lg-mobile": ["Playfair Display"], "body-lg": ["Manrope"], "body-md": ["Manrope"], "title-lg": ["Poppins"], "label-lg": ["Poppins"], "label-md": ["Manrope"]}, fontSize: {"display-lg": ["64px", {lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700"}], "label-sm": ["12px", {lineHeight: "1.2", letterSpacing: "0.05em", fontWeight: "500"}], "headline-md": ["24px", {lineHeight: "1.3", fontWeight: "600"}], "headline-lg": ["40px", {lineHeight: "1.2", fontWeight: "600"}], "title-md": ["16px", {lineHeight: "24px", letterSpacing: "0.15px", fontWeight: "500"}], "headline-lg-mobile": ["32px", {lineHeight: "1.2", fontWeight: "600"}], "body-lg": ["18px", {lineHeight: "1.6", fontWeight: "400"}], "body-md": ["16px", {lineHeight: "1.6", fontWeight: "400"}], "title-lg": ["22px", {lineHeight: "28px", fontWeight: "500"}], "label-lg": ["14px", {lineHeight: "20px", letterSpacing: "0.1px", fontWeight: "500"}], "label-md": ["14px", {lineHeight: "1.2", letterSpacing: "0.1em", fontWeight: "600"}]}}}};</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&amp;family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        @keyframes subtle-breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.02); opacity: 0.9; }
+        }
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            80%, 100% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        .animate-breathe {
+            animation: subtle-breathe 4s ease-in-out infinite;
+        }
+        .animate-fade-in {
+            animation: fade-in-up 1s ease-out forwards;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface h-screen w-full flex flex-col justify-center items-center relative overflow-hidden font-sans">
+<!-- Background Gradient -->
+<div class="absolute inset-0 bg-gradient-to-b from-primary-fixed to-surface-container-lowest opacity-60 pointer-events-none"></div>
+<!-- Central Logo Container -->
+<main class="z-10 flex flex-col items-center justify-center flex-grow animate-fade-in w-full max-w-sm px-container-margin-mobile">
+<!-- Logo Typography -->
+<div class="text-center animate-breathe relative"><div class="relative z-10 w-48 h-48 mx-auto mb-6 rounded-xl shadow-[0_20px_50px_rgba(93,67,0,0.3)] border border-white/20 overflow-hidden bg-white/10 backdrop-blur-sm">
+<img alt="DIVA Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJdhiP0dh62LNgIiq9fgzF0l1hGUT6L7sVdHZF63Vylh2gKnz5hlYSwZTlDcStifPzQmV3w-Y67Dtx57wDsyONOoDIN3FpRHCQwJYAuHMFqKJXqNK6Uy3dbkxBB0rxl3R3Iu02XxHHJSkXhBhEUfkyr2ZE0fsaCigzsA1b8v0jeF5yn4wod8a8XDPtrwiWUeYBGBhprwcgtxklr4u5q6fEozS4f_b1JTKtHFrPLSAQhk05RR73XtV1LYpghoqprpfuWkuYi3FK5XJw">
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-primary-fixed/20 blur-3xl rounded-full z-0 pointer-events-none"></div></div>
+<!-- Subtitle -->
+<p class="font-body-lg text-body-lg text-on-surface-variant text-center tracking-[0.2em] uppercase mt-2 mt-4">
+            Elegance Redefined
+        </p>
+</main>
+<!-- Bottom Loading Indicator -->
+<div class="absolute bottom-16 left-0 right-0 flex justify-center items-center z-10 animate-fade-in" style="animation-delay: 0.5s;">
+<div class="relative flex justify-center items-center">
+<!-- Outer pulsing ring -->
+<div class="absolute w-12 h-12 rounded-full border-2 border-primary/20 before:absolute before:inset-[-2px] before:rounded-full before:border-2 before:border-primary/40 before:animate-[pulse-ring_2s_cubic-bezier(0.215,0.61,0.355,1)_infinite]"></div>
+<!-- Inner solid dot -->
+<div class="w-3 h-3 bg-primary rounded-full animate-pulse shadow-[0px_4px_20px_rgba(142,68,173,0.3)]"></div>
+</div>
+</div>
+<script>
+        // Optional script to handle routing after splash screen delay
+        document.addEventListener('DOMContentLoaded', () => {
+            // Simulate a brief loading period before transitioning to the home screen
+            setTimeout(() => {
+                // In a real app, this would be a router push or window.location
+                console.log("Splash screen finished. Transitioning to main app...");
+                // Add an exit animation class to body if desired
+                document.body.classList.add('opacity-0', 'transition-opacity', 'duration-1000');
+            }, 3000); // 3 seconds splash duration
+        });
+    </script>
+</body></html>
