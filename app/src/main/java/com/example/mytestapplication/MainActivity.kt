@@ -29,6 +29,7 @@ import com.example.mytestapplication.ui.LoginScreen
 import com.example.mytestapplication.ui.NotificationsScreen
 import com.example.mytestapplication.ui.OtpVerificationScreen
 import com.example.mytestapplication.ui.PaymentScreen
+import com.example.mytestapplication.ui.PaymentSuccessScreen
 import com.example.mytestapplication.ui.ProfileScreen
 import com.example.mytestapplication.ui.RateServiceScreen
 import com.example.mytestapplication.ui.RegisterScreen
@@ -60,6 +61,7 @@ private enum class AppScreen {
     Checkout,
     SelectLocation,
     Payment,
+    PaymentSuccess,
     BookingSuccess,
     Tracking,
     RateService,
@@ -426,12 +428,22 @@ fun DivaApp() {
                 service = selectedService ?: ServiceCatalog.swedishMassage,
                 scheduleLabel = scheduleLabel,
                 modifier = Modifier.fillMaxSize(),
-                onBackClick = { currentScreen = AppScreen.Schedule },
+                onBackClick = { currentScreen = AppScreen.Checkout },
                 onViewAllCoupons = {
                     Toast.makeText(context, "All coupons", Toast.LENGTH_SHORT).show()
                 },
                 onConfirmPayClick = { total ->
                     paidAmount = total
+                    currentScreen = AppScreen.PaymentSuccess
+                }
+            )
+        }
+
+        AppScreen.PaymentSuccess -> {
+            PaymentSuccessScreen(
+                amount = paidAmount,
+                modifier = Modifier.fillMaxSize(),
+                onFinished = {
                     currentScreen = AppScreen.BookingSuccess
                 }
             )

@@ -2,8 +2,6 @@ package com.example.mytestapplication.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -39,13 +41,28 @@ import com.example.mytestapplication.ui.theme.PaymentSuccessBg
 import com.example.mytestapplication.ui.theme.PaymentSuccessCheck
 import com.example.mytestapplication.ui.theme.PaymentSuccessGlow
 import com.example.mytestapplication.ui.theme.PaymentSuccessTitle
+import kotlinx.coroutines.delay
+
+private const val PaymentSuccessHoldSeconds = 6
 
 @Composable
 fun PaymentSuccessScreen(
     amount: String = "$249.99",
     modifier: Modifier = Modifier,
-    onContinueClick: () -> Unit = {},
+    holdSeconds: Int = PaymentSuccessHoldSeconds,
+    onFinished: () -> Unit = {},
 ) {
+    var secondsLeft by remember { mutableIntStateOf(holdSeconds) }
+
+    LaunchedEffect(holdSeconds) {
+        secondsLeft = holdSeconds
+        while (secondsLeft > 0) {
+            delay(1000)
+            secondsLeft -= 1
+        }
+        onFinished()
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -54,11 +71,6 @@ fun PaymentSuccessScreen(
             .background(PaymentSuccessBg)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onContinueClick
-            )
             .padding(horizontal = 32.dp)
     ) {
         PaymentSuccessCheckIcon()
@@ -87,6 +99,20 @@ fun PaymentSuccessScreen(
             color = PaymentSuccessAmount,
             fontSize = 15.sp,
             fontWeight = FontWeight.Normal,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = if (secondsLeft > 0) {
+                "Redirecting in ${secondsLeft}s"
+            } else {
+                "Redirecting..."
+            },
+            color = PaymentSuccessAmount,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center
         )
     }
