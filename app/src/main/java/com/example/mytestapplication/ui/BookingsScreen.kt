@@ -1,7 +1,6 @@
 package com.example.mytestapplication.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,7 +40,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,27 +55,12 @@ import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
 import com.example.mytestapplication.ui.theme.WelcomeGold
 
-private enum class BookingStatus {
-    Upcoming,
-    Completed,
-    Cancelled,
-}
-
 private enum class BookingsNavType {
     Home,
+    Services,
     Bookings,
-    Wallet,
     Profile,
 }
-
-private data class BookingItem(
-    val title: String,
-    val location: String,
-    val date: String,
-    val time: String,
-    val status: BookingStatus,
-    val imageRes: Int,
-)
 
 private data class BookingsNavItem(
     val title: String,
@@ -87,73 +70,42 @@ private data class BookingsNavItem(
 @Composable
 fun BookingsScreen(
     modifier: Modifier = Modifier,
+    bookings: List<BookingUiItem> = emptyList(),
+    avatarUrl: String? = null,
     avatarRes: Int = R.drawable.pro_elena,
     onMenuClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onRescheduleClick: (String) -> Unit = {},
-    onCancelClick: (String) -> Unit = {},
-    onRebookClick: (String) -> Unit = {},
-    onReceiptClick: (String) -> Unit = {},
+    onRescheduleClick: (BookingUiItem) -> Unit = {},
+    onCancelClick: (BookingUiItem) -> Unit = {},
+    onRebookClick: (BookingUiItem) -> Unit = {},
+    onReceiptClick: (BookingUiItem) -> Unit = {},
     onNavClick: (String) -> Unit = {},
 ) {
     var selectedFilter by remember { mutableIntStateOf(0) }
     val filters = remember { listOf("Upcoming", "Completed", "Cancelled") }
 
-    val allBookings = remember {
-        listOf(
-            BookingItem(
-                title = "Bridal Makeup Trial",
-                location = "DIVA Beauty Atelier - SoHo",
-                date = "Oct 24, 2024",
-                time = "10:00 AM - 12:00 PM",
-                status = BookingStatus.Upcoming,
-                imageRes = R.drawable.service_bridal,
-            ),
-            BookingItem(
-                title = "Signature Facial",
-                location = "Glow Spa - Upper East Side",
-                date = "Oct 18, 2024",
-                time = "2:00 PM - 3:00 PM",
-                status = BookingStatus.Completed,
-                imageRes = R.drawable.cat_facial,
-            ),
-            BookingItem(
-                title = "Deep Tissue Massage",
-                location = "Serenity Spa - Chelsea",
-                date = "Oct 10, 2024",
-                time = "11:00 AM - 12:00 PM",
-                status = BookingStatus.Cancelled,
-                imageRes = R.drawable.cat_massage,
-            ),
-        )
-    }
-
-    val filtered = remember(selectedFilter, allBookings) {
+    val filtered = remember(selectedFilter, bookings) {
         val status = when (selectedFilter) {
-            0 -> BookingStatus.Upcoming
-            1 -> BookingStatus.Completed
-            else -> BookingStatus.Cancelled
+            0 -> "upcoming"
+            1 -> "completed"
+            else -> "cancelled"
         }
-        allBookings.filter { it.status == status }
+        bookings.filter { item ->
+            when (status) {
+                "upcoming" -> item.status in listOf("confirmed", "assigned", "on_the_way", "started")
+                "completed" -> item.status == "completed"
+                else -> item.status == "cancelled"
+            }
+        }
     }
 
-    // Design mock shows both upcoming + completed under Upcoming; keep that showcase feel
-    // when Upcoming is selected by including completed beneath upcoming.
-    val displayList = remember(selectedFilter, allBookings, filtered) {
-        if (selectedFilter == 0) {
-            allBookings.filter {
-                it.status == BookingStatus.Upcoming || it.status == BookingStatus.Completed
-            }
-        } else {
-            filtered
-        }
-    }
+    val displayList = filtered
 
     val navItems = remember {
         listOf(
             BookingsNavItem("Home", BookingsNavType.Home),
+            BookingsNavItem("Services", BookingsNavType.Services),
             BookingsNavItem("Bookings", BookingsNavType.Bookings),
-            BookingsNavItem("Wallet", BookingsNavType.Wallet),
             BookingsNavItem("Profile", BookingsNavType.Profile),
         )
     }
@@ -217,8 +169,9 @@ fun BookingsScreen(
                         .border(1.5.dp, Color(0xFFE5E1DB), CircleShape)
                         .clickable(onClick = onProfileClick)
                 ) {
-                    Image(
-                        painter = painterResource(id = avatarRes),
+                    RemoteImage(
+                        imageUrl = avatarUrl,
+                        fallbackRes = avatarRes,
                         contentDescription = "Profile",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -286,10 +239,10 @@ fun BookingsScreen(
                 displayList.forEach { booking ->
                     BookingCard(
                         booking = booking,
-                        onRescheduleClick = { onRescheduleClick(booking.title) },
-                        onCancelClick = { onCancelClick(booking.title) },
-                        onRebookClick = { onRebookClick(booking.title) },
-                        onReceiptClick = { onReceiptClick(booking.title) }
+                        onRescheduleClick = { onRescheduleClick(booking) },
+                        onCancelClick = { onCancelClick(booking) },
+                        onRebookClick = { onRebookClick(booking) },
+                        onReceiptClick = { onReceiptClick(booking) }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -341,9 +294,19 @@ fun BookingsScreen(
     }
 }
 
+private fun bookingStatusLabel(status: String): String = when (status) {
+    "confirmed", "assigned", "on_the_way", "started" -> "Upcoming"
+    "completed" -> "Completed"
+    "cancelled" -> "Cancelled"
+    else -> status.replaceFirstChar { it.uppercase() }
+}
+
+private fun isUpcomingStatus(status: String): Boolean =
+    status in listOf("confirmed", "assigned", "on_the_way", "started")
+
 @Composable
 private fun BookingCard(
-    booking: BookingItem,
+    booking: BookingUiItem,
     onRescheduleClick: () -> Unit,
     onCancelClick: () -> Unit,
     onRebookClick: () -> Unit,
@@ -362,23 +325,27 @@ private fun BookingCard(
             .background(OtpWhite)
     ) {
         Box {
-            Image(
-                painter = painterResource(id = booking.imageRes),
+            RemoteImage(
+                imageUrl = booking.imageUrl,
+                fallbackRes = booking.imageRes,
                 contentDescription = booking.title,
                 contentScale = ContentScale.Crop,
+                showUnavailableOnError = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
             )
-            val badgeBg = when (booking.status) {
-                BookingStatus.Upcoming -> Color(0xFFB08D57)
-                BookingStatus.Completed -> Color(0xFFE8E4DF)
-                BookingStatus.Cancelled -> Color(0xFFFDECEC)
+            val badgeBg = when {
+                isUpcomingStatus(booking.status) -> Color(0xFFB08D57)
+                booking.status == "completed" -> Color(0xFFE8E4DF)
+                booking.status == "cancelled" -> Color(0xFFFDECEC)
+                else -> Color(0xFFE8E4DF)
             }
-            val badgeFg = when (booking.status) {
-                BookingStatus.Upcoming -> OtpWhite
-                BookingStatus.Completed -> HomeSubtitle
-                BookingStatus.Cancelled -> Color(0xFFE57373)
+            val badgeFg = when {
+                isUpcomingStatus(booking.status) -> OtpWhite
+                booking.status == "completed" -> HomeSubtitle
+                booking.status == "cancelled" -> Color(0xFFE57373)
+                else -> HomeSubtitle
             }
             Box(
                 modifier = Modifier
@@ -389,7 +356,7 @@ private fun BookingCard(
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
                 Text(
-                    text = booking.status.name,
+                    text = bookingStatusLabel(booking.status),
                     color = badgeFg,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
@@ -404,6 +371,20 @@ private fun BookingCard(
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
+            if (booking.reference.isNotBlank() || booking.professionalName.isNotBlank() || booking.totalLabel.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = listOfNotNull(
+                        booking.reference.takeIf { it.isNotBlank() }?.let { "#$it" },
+                        booking.professionalName.takeIf { it.isNotBlank() },
+                        booking.totalLabel.takeIf { it.isNotBlank() && it != "₹0.00" },
+                        booking.paymentStatus.takeIf { it.isNotBlank() }?.replace('_', ' '),
+                    ).joinToString("  ·  "),
+                    color = HomeSubtitle,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                )
+            }
             Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Canvas(modifier = Modifier.size(12.dp)) {
@@ -490,8 +471,8 @@ private fun BookingCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            when (booking.status) {
-                BookingStatus.Upcoming -> {
+            when {
+                isUpcomingStatus(booking.status) -> {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -542,7 +523,7 @@ private fun BookingCard(
                     }
                 }
 
-                BookingStatus.Completed -> {
+                booking.status == "completed" -> {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -611,7 +592,7 @@ private fun BookingCard(
                     }
                 }
 
-                BookingStatus.Cancelled -> {
+                booking.status == "cancelled" -> {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -654,6 +635,25 @@ private fun BookingsNavIcon(
                 drawPath(path, color = tint, style = stroke)
             }
 
+            BookingsNavType.Services -> {
+                drawCircle(
+                    color = tint,
+                    radius = size.minDimension * 0.12f,
+                    center = Offset(size.width * 0.5f, size.height * 0.52f)
+                )
+                for (i in 0 until 5) {
+                    val angle = Math.toRadians((-90.0 + i * 72.0))
+                    val cx = size.width * 0.5f + (size.minDimension * 0.22f * Math.cos(angle)).toFloat()
+                    val cy = size.height * 0.48f + (size.minDimension * 0.22f * Math.sin(angle)).toFloat()
+                    drawCircle(
+                        color = tint,
+                        radius = size.minDimension * 0.14f,
+                        center = Offset(cx, cy),
+                        style = stroke
+                    )
+                }
+            }
+
             BookingsNavType.Bookings -> {
                 drawRoundRect(
                     color = tint,
@@ -675,23 +675,6 @@ private fun BookingsNavIcon(
                     end = Offset(size.width * 0.7f, size.height * 0.3f),
                     strokeWidth = 1.8.dp.toPx(),
                     cap = StrokeCap.Round
-                )
-            }
-
-            BookingsNavType.Wallet -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.14f, size.height * 0.28f),
-                    size = Size(size.width * 0.72f, size.height * 0.5f),
-                    cornerRadius = CornerRadius(2.5.dp.toPx()),
-                    style = stroke
-                )
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.52f, size.height * 0.42f),
-                    size = Size(size.width * 0.34f, size.height * 0.22f),
-                    cornerRadius = CornerRadius(1.5.dp.toPx()),
-                    style = stroke
                 )
             }
 

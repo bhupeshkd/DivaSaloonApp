@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,17 +46,22 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mytestapplication.data.api.dto.CategoryDto
 import com.example.mytestapplication.R
 import com.example.mytestapplication.ui.theme.HomeAccent
 import com.example.mytestapplication.ui.theme.HomeBg
@@ -61,7 +69,6 @@ import com.example.mytestapplication.ui.theme.HomeNavInactive
 import com.example.mytestapplication.ui.theme.HomeSearchBg
 import com.example.mytestapplication.ui.theme.HomeSubtitle
 import com.example.mytestapplication.ui.theme.HomeTitle
-import com.example.mytestapplication.ui.theme.HomeWalletBg
 import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
 import com.example.mytestapplication.ui.theme.ServiceStar
@@ -80,12 +87,7 @@ private data class HomeCategoryItem(
 )
 
 private data class FeaturedServiceCard(
-    val title: String,
-    val price: String,
-    val rating: String,
-    val reviews: String,
-    val description: String,
-    val imageRes: Int,
+    val service: ServiceInfo,
 )
 
 private enum class HomeNavType {
@@ -100,54 +102,67 @@ private data class HomeNavItem(
     val type: HomeNavType,
 )
 
+private fun categoryIconFor(slug: String): HomeCategoryIcon = when (slug.lowercase()) {
+    "nails" -> HomeCategoryIcon.Nails
+    "facial" -> HomeCategoryIcon.Facial
+    "massage" -> HomeCategoryIcon.Massage
+    else -> HomeCategoryIcon.Hair
+}
+
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    walletBalance: String = "$120",
-    location: String = "San Francisco, CA",
+    greeting: String = "Welcome",
+    location: String = "Locating...",
+    onLocationClick: () -> Unit = {},
+    categories: List<CategoryDto> = emptyList(),
+    featuredServices: List<ServiceInfo> = emptyList(),
     onFilterClick: () -> Unit = {},
+    onSearchSubmit: (String) -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onSeeAllTrending: () -> Unit = {},
-    onCategoryClick: (String) -> Unit = {},
-    onFeaturedClick: (String) -> Unit = {},
-    onTrendingBookClick: (String) -> Unit = {},
+    onFeaturedClick: (ServiceInfo) -> Unit = {},
+    onTrendingBookClick: (ServiceInfo) -> Unit = {},
     onNavClick: (String) -> Unit = {},
-    onWalletClick: () -> Unit = {},
-    onFavoriteClick: (String) -> Unit = {},
+    onFavoriteClick: (ServiceInfo) -> Unit = {},
     onPromoClick: () -> Unit = {},
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableIntStateOf(0) }
+    var selectedCategory by remember { mutableIntStateOf(-1) }
     var promoPage by remember { mutableIntStateOf(0) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    val categories = remember {
-        listOf(
-            HomeCategoryItem("Hair", HomeCategoryIcon.Hair),
-            HomeCategoryItem("Nails", HomeCategoryIcon.Nails),
-            HomeCategoryItem("Facial", HomeCategoryIcon.Facial),
-            HomeCategoryItem("Massage", HomeCategoryIcon.Massage),
-        )
+    fun submitSearch() {
+        val query = searchQuery.trim()
+        if (query.isEmpty()) return
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        onSearchSubmit(query)
     }
 
-    val featured = remember {
-        listOf(
-            FeaturedServiceCard(
-                title = "Bridal Makeup",
-                price = "$150",
-                rating = "4.9",
-                reviews = "120 reviews",
-                description = "Complete bridal makeup package including consultation, skin prep, and premium long-wear cosmetics.",
-                imageRes = R.drawable.service_bridal,
-            ),
-            FeaturedServiceCard(
-                title = "Deep Tissue Massage",
-                price = "$90",
-                rating = "4.8",
-                reviews = "85 reviews",
-                description = "Target deep muscle tension with firm pressure techniques that restore mobility and calm.",
-                imageRes = R.drawable.cat_massage,
-            ),
-        )
+    val categoryItems = remember(categories) {
+        categories.map {
+            HomeCategoryItem(it.name, categoryIconFor(it.slug))
+        }.ifEmpty {
+            listOf(
+                HomeCategoryItem("Hair", HomeCategoryIcon.Hair),
+                HomeCategoryItem("Nails", HomeCategoryIcon.Nails),
+                HomeCategoryItem("Facial", HomeCategoryIcon.Facial),
+                HomeCategoryItem("Massage", HomeCategoryIcon.Massage),
+            )
+        }
+    }
+
+    val featured = remember(featuredServices, categories, selectedCategory) {
+        val selected = categories.getOrNull(selectedCategory)
+        featuredServices
+            .filter { service ->
+                selected == null ||
+                    service.categorySlug.equals(selected.slug, ignoreCase = true) ||
+                    service.categoryName.equals(selected.name, ignoreCase = true)
+            }
+            .map { FeaturedServiceCard(it) }
     }
 
     val navItems = remember {
@@ -180,7 +195,9 @@ fun HomeScreen(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onLocationClick)
                 ) {
                     Canvas(modifier = Modifier.size(14.dp)) {
                         val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
@@ -229,87 +246,51 @@ fun HomeScreen(
                 )
 
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(HomeWalletBg)
-                                .clickable(onClick = onWalletClick)
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Canvas(modifier = Modifier.size(14.dp)) {
-                                val stroke = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round)
-                                drawRoundRect(
-                                    color = HomeAccent,
-                                    topLeft = Offset(size.width * 0.12f, size.height * 0.28f),
-                                    size = Size(size.width * 0.76f, size.height * 0.5f),
-                                    cornerRadius = CornerRadius(2.dp.toPx()),
-                                    style = stroke
-                                )
-                                drawRoundRect(
-                                    color = HomeAccent,
-                                    topLeft = Offset(size.width * 0.5f, size.height * 0.4f),
-                                    size = Size(size.width * 0.38f, size.height * 0.24f),
-                                    cornerRadius = CornerRadius(1.5.dp.toPx()),
-                                    style = stroke
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = walletBalance,
-                                color = HomeTitle,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onNotificationClick)
+                    ) {
+                        Canvas(modifier = Modifier.size(20.dp)) {
+                            val stroke = Stroke(width = 1.7.dp.toPx(), cap = StrokeCap.Round)
+                            drawPath(
+                                path = Path().apply {
+                                    moveTo(size.width * 0.2f, size.height * 0.42f)
+                                    quadraticTo(
+                                        size.width * 0.2f,
+                                        size.height * 0.18f,
+                                        size.width * 0.5f,
+                                        size.height * 0.18f
+                                    )
+                                    quadraticTo(
+                                        size.width * 0.8f,
+                                        size.height * 0.18f,
+                                        size.width * 0.8f,
+                                        size.height * 0.42f
+                                    )
+                                    lineTo(size.width * 0.8f, size.height * 0.62f)
+                                    lineTo(size.width * 0.88f, size.height * 0.72f)
+                                    lineTo(size.width * 0.12f, size.height * 0.72f)
+                                    lineTo(size.width * 0.2f, size.height * 0.62f)
+                                    close()
+                                },
+                                color = HomeAccent,
+                                style = stroke
                             )
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .clickable(onClick = onNotificationClick)
-                        ) {
-                            Canvas(modifier = Modifier.size(20.dp)) {
-                                val stroke = Stroke(width = 1.7.dp.toPx(), cap = StrokeCap.Round)
-                                drawPath(
-                                    path = Path().apply {
-                                        moveTo(size.width * 0.2f, size.height * 0.42f)
-                                        quadraticTo(
-                                            size.width * 0.2f,
-                                            size.height * 0.18f,
-                                            size.width * 0.5f,
-                                            size.height * 0.18f
-                                        )
-                                        quadraticTo(
-                                            size.width * 0.8f,
-                                            size.height * 0.18f,
-                                            size.width * 0.8f,
-                                            size.height * 0.42f
-                                        )
-                                        lineTo(size.width * 0.8f, size.height * 0.62f)
-                                        lineTo(size.width * 0.88f, size.height * 0.72f)
-                                        lineTo(size.width * 0.12f, size.height * 0.72f)
-                                        lineTo(size.width * 0.2f, size.height * 0.62f)
-                                        close()
-                                    },
-                                    color = HomeAccent,
-                                    style = stroke
-                                )
-                                drawLine(
-                                    color = HomeAccent,
-                                    start = Offset(size.width * 0.42f, size.height * 0.78f),
-                                    end = Offset(size.width * 0.58f, size.height * 0.78f),
-                                    strokeWidth = 1.7.dp.toPx(),
-                                    cap = StrokeCap.Round
-                                )
-                                drawCircle(
-                                    color = WelcomeGold,
-                                    radius = size.minDimension * 0.08f,
-                                    center = Offset(size.width * 0.72f, size.height * 0.22f)
-                                )
-                            }
+                            drawLine(
+                                color = HomeAccent,
+                                start = Offset(size.width * 0.42f, size.height * 0.78f),
+                                end = Offset(size.width * 0.58f, size.height * 0.78f),
+                                strokeWidth = 1.7.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
+                            drawCircle(
+                                color = WelcomeGold,
+                                radius = size.minDimension * 0.08f,
+                                center = Offset(size.width * 0.72f, size.height * 0.22f)
+                            )
                         }
                     }
                 }
@@ -344,6 +325,8 @@ fun HomeScreen(
                     singleLine = true,
                     textStyle = TextStyle(color = HomeTitle, fontSize = 14.sp),
                     cursorBrush = SolidColor(WelcomeGold),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
                     decorationBox = { inner ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -519,14 +502,13 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                categories.forEachIndexed { index, category ->
+                categoryItems.forEachIndexed { index, category ->
                     val selected = selectedCategory == index
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clickable {
-                                selectedCategory = index
-                                onCategoryClick(category.title)
+                                selectedCategory = if (selectedCategory == index) -1 else index
                             }
                     ) {
                         Box(
@@ -567,11 +549,20 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            featured.forEach { service ->
+            if (featured.isEmpty()) {
+                Text(
+                    text = "No services in this category.",
+                    color = HomeSubtitle,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            featured.forEach { card ->
                 FeaturedServiceCardView(
-                    service = service,
-                    onClick = { onFeaturedClick(service.title) },
-                    onFavoriteClick = { onFavoriteClick(service.title) }
+                    service = card.service,
+                    onClick = { onFeaturedClick(card.service) },
+                    onFavoriteClick = { onFavoriteClick(card.service) }
                 )
                 Spacer(modifier = Modifier.height(14.dp))
             }
@@ -635,7 +626,7 @@ fun HomeScreen(
 
 @Composable
 private fun FeaturedServiceCardView(
-    service: FeaturedServiceCard,
+    service: ServiceInfo,
     onClick: () -> Unit,
     onFavoriteClick: () -> Unit,
 ) {
@@ -652,8 +643,8 @@ private fun FeaturedServiceCardView(
             .clickable(onClick = onClick)
     ) {
         Box {
-            Image(
-                painter = painterResource(id = service.imageRes),
+            ServiceImage(
+                service = service,
                 contentDescription = service.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -668,7 +659,11 @@ private fun FeaturedServiceCardView(
                     .size(34.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.9f))
-                    .clickable(onClick = onFavoriteClick)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onFavoriteClick,
+                    )
             ) {
                 Canvas(modifier = Modifier.size(16.dp)) {
                     val heart = Path().apply {
@@ -695,11 +690,16 @@ private fun FeaturedServiceCardView(
                         )
                         close()
                     }
-                    drawPath(
-                        path = heart,
-                        color = Color(0xFF6B5A3E),
-                        style = Stroke(width = 1.6.dp.toPx(), join = StrokeJoin.Round)
-                    )
+                    val heartColor = Color(0xFF6B5A3E)
+                    if (service.isFavorited) {
+                        drawPath(path = heart, color = heartColor, style = Fill)
+                    } else {
+                        drawPath(
+                            path = heart,
+                            color = heartColor,
+                            style = Stroke(width = 1.6.dp.toPx(), join = StrokeJoin.Round)
+                        )
+                    }
                 }
             }
         }
@@ -744,14 +744,31 @@ private fun FeaturedServiceCardView(
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "${service.rating} (${service.reviews})",
+                    text = service.ratingLabel,
                     color = HomeSubtitle,
                     fontSize = 12.sp
                 )
+                if (service.duration.isNotBlank()) {
+                    Text(
+                        text = "  ·  ${service.duration}",
+                        color = HomeSubtitle,
+                        fontSize = 12.sp
+                    )
+                }
+                if (!service.categoryName.isNullOrBlank()) {
+                    Text(
+                        text = "  ·  ${service.categoryName}",
+                        color = HomeSubtitle,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = service.description,
+                text = service.shortDescription.ifBlank { service.description },
                 color = HomeSubtitle,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,

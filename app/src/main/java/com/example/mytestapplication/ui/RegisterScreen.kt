@@ -70,7 +70,13 @@ import com.example.mytestapplication.ui.theme.RegisterSubtitle
 @Composable
 fun RegisterScreen(
     modifier: Modifier = Modifier,
-    onSignUpClick: () -> Unit = {},
+    onSignUpClick: (
+        fullName: String,
+        mobile: String,
+        email: String,
+        password: String,
+        confirmPassword: String,
+    ) -> Unit = { _, _, _, _, _ -> },
     onGoogleSignUpClick: () -> Unit = {},
     onLoginClick: () -> Unit = {},
 ) {
@@ -173,7 +179,9 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = onSignUpClick,
+            onClick = {
+                onSignUpClick(fullName, mobile, email, password, confirmPassword)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),

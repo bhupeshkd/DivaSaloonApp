@@ -1,7 +1,6 @@
 package com.example.mytestapplication.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +37,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -60,7 +58,6 @@ private enum class ProfileMenuIcon {
     BookingHistory,
     Favorites,
     Coupons,
-    Wallet,
     Referral,
     HelpCenter,
     Faqs,
@@ -69,8 +66,8 @@ private enum class ProfileMenuIcon {
 
 private enum class ProfileNavType {
     Home,
+    Services,
     Bookings,
-    Wallet,
     Profile,
 }
 
@@ -94,6 +91,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     userName: String = "Alexandra V.",
     membership: String = "Gold Member",
+    avatarUrl: String? = null,
     avatarRes: Int = R.drawable.pro_elena,
     onMenuClick: () -> Unit = {},
     onHeaderProfileClick: () -> Unit = {},
@@ -118,12 +116,6 @@ fun ProfileScreen(
                     ProfileMenuItem("Booking History", ProfileMenuIcon.BookingHistory),
                     ProfileMenuItem("Favorites", ProfileMenuIcon.Favorites),
                     ProfileMenuItem("Coupons", ProfileMenuIcon.Coupons),
-                )
-            ),
-            ProfileMenuSection(
-                title = "Payments",
-                items = listOf(
-                    ProfileMenuItem("Wallet", ProfileMenuIcon.Wallet),
                     ProfileMenuItem("Referral", ProfileMenuIcon.Referral),
                 )
             ),
@@ -141,8 +133,8 @@ fun ProfileScreen(
     val navItems = remember {
         listOf(
             ProfileNavItem("Home", ProfileNavType.Home),
+            ProfileNavItem("Services", ProfileNavType.Services),
             ProfileNavItem("Bookings", ProfileNavType.Bookings),
-            ProfileNavItem("Wallet", ProfileNavType.Wallet),
             ProfileNavItem("Profile", ProfileNavType.Profile),
         )
     }
@@ -250,8 +242,9 @@ fun ProfileScreen(
 
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
                 Box {
-                    Image(
-                        painter = painterResource(id = avatarRes),
+                    RemoteImage(
+                        imageUrl = avatarUrl,
+                        fallbackRes = avatarRes,
                         contentDescription = userName,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -315,6 +308,7 @@ fun ProfileScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
+            if (membership.isNotBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
 
             Row(
@@ -326,6 +320,7 @@ fun ProfileScreen(
                     .background(Color(0xFFF0E6D4))
                     .padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
+                if (membership.contains("Member", ignoreCase = true)) {
                 Canvas(modifier = Modifier.size(12.dp)) {
                     // Crown
                     val stroke = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
@@ -349,13 +344,16 @@ fun ProfileScreen(
                         cap = StrokeCap.Round
                     )
                 }
+                }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = membership,
                     color = WelcomeGold,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
+            }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -696,23 +694,6 @@ private fun ProfileMenuIconCanvas(icon: ProfileMenuIcon) {
                 )
             }
 
-            ProfileMenuIcon.Wallet -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.14f, size.height * 0.28f),
-                    size = Size(size.width * 0.72f, size.height * 0.5f),
-                    cornerRadius = CornerRadius(2.5.dp.toPx()),
-                    style = stroke
-                )
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.52f, size.height * 0.42f),
-                    size = Size(size.width * 0.34f, size.height * 0.22f),
-                    cornerRadius = CornerRadius(1.5.dp.toPx()),
-                    style = stroke
-                )
-            }
-
             ProfileMenuIcon.Referral -> {
                 drawCircle(
                     color = tint,
@@ -840,6 +821,25 @@ private fun ProfileNavIcon(
                 drawPath(path, color = tint, style = stroke)
             }
 
+            ProfileNavType.Services -> {
+                drawCircle(
+                    color = tint,
+                    radius = size.minDimension * 0.12f,
+                    center = Offset(size.width * 0.5f, size.height * 0.52f)
+                )
+                for (i in 0 until 5) {
+                    val angle = Math.toRadians((-90.0 + i * 72.0))
+                    val cx = size.width * 0.5f + (size.minDimension * 0.22f * Math.cos(angle)).toFloat()
+                    val cy = size.height * 0.48f + (size.minDimension * 0.22f * Math.sin(angle)).toFloat()
+                    drawCircle(
+                        color = tint,
+                        radius = size.minDimension * 0.14f,
+                        center = Offset(cx, cy),
+                        style = stroke
+                    )
+                }
+            }
+
             ProfileNavType.Bookings -> {
                 drawRoundRect(
                     color = tint,
@@ -861,23 +861,6 @@ private fun ProfileNavIcon(
                     end = Offset(size.width * 0.7f, size.height * 0.3f),
                     strokeWidth = 1.8.dp.toPx(),
                     cap = StrokeCap.Round
-                )
-            }
-
-            ProfileNavType.Wallet -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.14f, size.height * 0.28f),
-                    size = Size(size.width * 0.72f, size.height * 0.5f),
-                    cornerRadius = CornerRadius(2.5.dp.toPx()),
-                    style = stroke
-                )
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.52f, size.height * 0.42f),
-                    size = Size(size.width * 0.34f, size.height * 0.22f),
-                    cornerRadius = CornerRadius(1.5.dp.toPx()),
-                    style = stroke
                 )
             }
 

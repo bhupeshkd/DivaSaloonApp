@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -69,15 +71,18 @@ private const val OtpLength = 6
 fun OtpVerificationScreen(
     modifier: Modifier = Modifier,
     phoneNumber: String = "+1 234 ••••• 89",
+    isLoading: Boolean = false,
     onBackClick: () -> Unit = {},
     onResendClick: () -> Unit = {},
     onVerifyClick: (String) -> Unit = {},
 ) {
     var otpValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     Column(
@@ -157,7 +162,11 @@ fun OtpVerificationScreen(
                                 otpValue = value
                             }
                         },
-                        focusRequester = focusRequester
+                        focusRequester = focusRequester,
+                        onRequestKeyboard = {
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
+                        },
                     )
 
                     Spacer(modifier = Modifier.height(28.dp))
@@ -178,7 +187,7 @@ fun OtpVerificationScreen(
 
                     Button(
                         onClick = { onVerifyClick(otpValue) },
-                        enabled = otpValue.length == OtpLength,
+                        enabled = otpValue.length == OtpLength && !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
@@ -201,7 +210,7 @@ fun OtpVerificationScreen(
                         )
                     ) {
                         Text(
-                            text = "Verify & Proceed",
+                            text = if (isLoading) "Verifying..." else "Verify & Proceed",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -279,6 +288,7 @@ private fun OtpInputField(
     otpText: String,
     onOtpChange: (String) -> Unit,
     focusRequester: FocusRequester,
+    onRequestKeyboard: () -> Unit,
 ) {
     BasicTextField(
         value = TextFieldValue(
@@ -291,8 +301,12 @@ private fun OtpInputField(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .focusRequester(focusRequester),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            .focusRequester(focusRequester)
+            .clickable(onClick = onRequestKeyboard),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done,
+        ),
         cursorBrush = SolidColor(Color.Transparent),
         decorationBox = {
             Row(
@@ -313,6 +327,7 @@ private fun OtpInputField(
                             .background(
                                 if (isFocused) OtpBrown.copy(alpha = 0.12f) else OtpBox
                             )
+                            .clickable(onClick = onRequestKeyboard)
                     ) {
                         Text(
                             text = char,

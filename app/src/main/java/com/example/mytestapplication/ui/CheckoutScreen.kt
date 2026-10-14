@@ -86,18 +86,17 @@ private data class BookingTime(
 )
 
 private enum class PaymentMethod {
-    Card,
-    Upi,
-    Wallet,
+    Cash,
 }
 
 @Composable
 fun CheckoutScreen(
-    service: ServiceInfo = ServiceCatalog.bridalMakeup,
+    service: ServiceInfo = ServiceSamples.preview,
     modifier: Modifier = Modifier,
     addressTitle: String = "Home Address",
     addressLine: String = "123 Luxury Lane, Apt 4B, Manhattan, NY 10001",
-    walletBalance: String = "24.50",
+    scheduleLabel: String = "",
+    professionalName: String = "",
     onBackClick: () -> Unit = {},
     onEditLocationClick: () -> Unit = {},
     onConfirmBookingClick: () -> Unit = {},
@@ -120,7 +119,7 @@ fun CheckoutScreen(
 
     var selectedDateIndex by remember { mutableIntStateOf(1) }
     var selectedTimeIndex by remember { mutableIntStateOf(1) }
-    var selectedPayment by remember { mutableStateOf(PaymentMethod.Card) }
+    var selectedPayment by remember { mutableStateOf(PaymentMethod.Cash) }
 
     Column(
         modifier = modifier
@@ -209,6 +208,28 @@ fun CheckoutScreen(
 
             Spacer(modifier = Modifier.height(22.dp))
 
+            if (scheduleLabel.isNotBlank() || professionalName.isNotBlank()) {
+                Text(
+                    text = "Appointment",
+                    color = CheckoutTitle,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = scheduleLabel.ifBlank { "No slots available" },
+                    color = CheckoutTitle,
+                    fontSize = 14.sp,
+                )
+                if (professionalName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = professionalName,
+                        color = CheckoutBody,
+                        fontSize = 13.sp,
+                    )
+                }
+            } else {
             Text(
                 text = "Select Date & Time",
                 color = CheckoutTitle,
@@ -249,6 +270,7 @@ fun CheckoutScreen(
                     )
                 }
             }
+            }
 
             Spacer(modifier = Modifier.height(22.dp))
 
@@ -260,27 +282,20 @@ fun CheckoutScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             PaymentOptionCard(
-                selected = selectedPayment == PaymentMethod.Card,
-                onClick = { selectedPayment = PaymentMethod.Card },
-                title = "Credit/Debit Card",
-                subtitle = "**** **** **** 4242",
-                icon = { CardPaymentIcon() }
+                selected = selectedPayment == PaymentMethod.Cash,
+                onClick = { selectedPayment = PaymentMethod.Cash },
+                title = "Cash at Venue",
+                subtitle = "Pay when the professional arrives",
+                icon = { CashPaymentIcon() }
             )
             Spacer(modifier = Modifier.height(10.dp))
             PaymentOptionCard(
-                selected = selectedPayment == PaymentMethod.Upi,
-                onClick = { selectedPayment = PaymentMethod.Upi },
-                title = "UPI",
-                subtitle = "GPay, PhonePe, Paytm",
-                icon = { UpiPaymentIcon() }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            PaymentOptionCard(
-                selected = selectedPayment == PaymentMethod.Wallet,
-                onClick = { selectedPayment = PaymentMethod.Wallet },
-                title = "DIVA Wallet",
-                subtitle = "Balance: $${walletBalance}",
-                icon = { WalletPaymentIcon() }
+                selected = false,
+                enabled = false,
+                onClick = {},
+                title = "Online Payment",
+                subtitle = "UPI, cards & wallets — coming soon",
+                icon = { OnlineSoonPaymentIcon() }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -382,8 +397,8 @@ private fun ServiceSummaryCard(service: ServiceInfo) {
             .background(CheckoutCard)
             .padding(14.dp)
     ) {
-        Image(
-            painter = painterResource(id = service.imageRes),
+        ServiceImage(
+            service = service,
             contentDescription = service.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -701,7 +716,9 @@ private fun PaymentOptionCard(
     title: String,
     subtitle: String,
     icon: @Composable () -> Unit,
+    enabled: Boolean = true,
 ) {
+    val alpha = if (enabled) 1f else 0.55f
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -712,7 +729,7 @@ private fun PaymentOptionCard(
                 ambientColor = Color.Black.copy(alpha = 0.05f)
             )
             .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) CheckoutAccentSoft else CheckoutCard)
+            .background((if (selected) CheckoutAccentSoft else CheckoutCard).copy(alpha = alpha))
             .then(
                 if (selected) {
                     Modifier.border(1.dp, CheckoutAccent.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
@@ -720,7 +737,7 @@ private fun PaymentOptionCard(
                     Modifier.border(1.dp, CheckoutDivider, RoundedCornerShape(14.dp))
                 }
             )
-            .clickable(onClick = onClick)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
         // Radio
@@ -776,89 +793,42 @@ private fun PaymentOptionCard(
 }
 
 @Composable
-private fun CardPaymentIcon() {
+private fun CashPaymentIcon() {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
         drawRoundRect(
             color = CheckoutAccent,
-            topLeft = Offset(size.width * 0.08f, size.height * 0.22f),
-            size = Size(size.width * 0.84f, size.height * 0.58f),
-            cornerRadius = CornerRadius(2.5.dp.toPx()),
-            style = stroke
-        )
-        drawLine(
-            color = CheckoutAccent,
-            start = Offset(size.width * 0.08f, size.height * 0.42f),
-            end = Offset(size.width * 0.92f, size.height * 0.42f),
-            strokeWidth = 2.dp.toPx()
-        )
-        drawLine(
-            color = CheckoutAccent,
-            start = Offset(size.width * 0.2f, size.height * 0.62f),
-            end = Offset(size.width * 0.42f, size.height * 0.62f),
-            strokeWidth = 1.5.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun UpiPaymentIcon() {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
-        drawRoundRect(
-            color = CheckoutAccent,
-            topLeft = Offset(size.width * 0.12f, size.height * 0.12f),
-            size = Size(size.width * 0.76f, size.height * 0.76f),
+            topLeft = Offset(size.width * 0.08f, size.height * 0.28f),
+            size = Size(size.width * 0.84f, size.height * 0.48f),
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke
         )
-        drawRoundRect(
-            color = CheckoutAccent,
-            topLeft = Offset(size.width * 0.28f, size.height * 0.28f),
-            size = Size(size.width * 0.28f, size.height * 0.28f),
-            cornerRadius = CornerRadius(1.dp.toPx())
-        )
         drawCircle(
             color = CheckoutAccent,
-            radius = 1.4.dp.toPx(),
-            center = Offset(size.width * 0.7f, size.height * 0.35f)
-        )
-        drawCircle(
-            color = CheckoutAccent,
-            radius = 1.4.dp.toPx(),
-            center = Offset(size.width * 0.7f, size.height * 0.55f)
-        )
-        drawCircle(
-            color = CheckoutAccent,
-            radius = 1.4.dp.toPx(),
-            center = Offset(size.width * 0.52f, size.height * 0.7f)
+            radius = size.minDimension * 0.12f,
+            center = Offset(size.width * 0.5f, size.height * 0.52f),
+            style = stroke
         )
     }
 }
 
 @Composable
-private fun WalletPaymentIcon() {
+private fun OnlineSoonPaymentIcon() {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
         drawRoundRect(
             color = CheckoutAccent,
-            topLeft = Offset(size.width * 0.1f, size.height * 0.22f),
-            size = Size(size.width * 0.8f, size.height * 0.56f),
-            cornerRadius = CornerRadius(2.5.dp.toPx()),
+            topLeft = Offset(size.width * 0.12f, size.height * 0.3f),
+            size = Size(size.width * 0.76f, size.height * 0.46f),
+            cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke
         )
-        drawRoundRect(
+        drawLine(
             color = CheckoutAccent,
-            topLeft = Offset(size.width * 0.55f, size.height * 0.38f),
-            size = Size(size.width * 0.35f, size.height * 0.24f),
-            cornerRadius = CornerRadius(1.5.dp.toPx()),
-            style = stroke
-        )
-        drawCircle(
-            color = CheckoutAccent,
-            radius = 1.6.dp.toPx(),
-            center = Offset(size.width * 0.68f, size.height * 0.5f)
+            start = Offset(size.width * 0.2f, size.height * 0.42f),
+            end = Offset(size.width * 0.8f, size.height * 0.42f),
+            strokeWidth = 1.5.dp.toPx(),
+            cap = StrokeCap.Round
         )
     }
 }

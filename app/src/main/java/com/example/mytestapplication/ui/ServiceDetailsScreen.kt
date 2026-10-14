@@ -40,6 +40,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,25 +59,17 @@ import com.example.mytestapplication.ui.theme.ServiceNotIncludedSoft
 import com.example.mytestapplication.ui.theme.ServiceStar
 import com.example.mytestapplication.ui.theme.ServiceTitle
 
-private data class Professional(
-    val name: String,
-    val role: String,
-    val rating: String,
-    val imageRes: Int,
-)
 
 @Composable
 fun ServiceDetailsScreen(
-    service: ServiceInfo = ServiceCatalog.bridalMakeup,
+    service: ServiceInfo = ServiceSamples.preview,
+    reviews: List<ReviewUi> = emptyList(),
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onViewAllProfessionals: () -> Unit = {},
     onBookNowClick: () -> Unit = {},
 ) {
-    val professionals = listOf(
-        Professional("Elena R.", "Master Artist", "5.0", R.drawable.pro_elena),
-        Professional("Sarah J.", "Senior Stylist", "4.9", R.drawable.pro_sarah),
-    )
+    val professionals = service.professionals
 
     Column(
         modifier = modifier
@@ -95,8 +89,8 @@ fun ServiceDetailsScreen(
                     .height(280.dp)
                     .clip(RoundedCornerShape(bottomStart = 0.dp, bottomEnd = 0.dp))
             ) {
-                Image(
-                    painter = painterResource(id = service.imageRes),
+                ServiceImage(
+                    service = service,
                     contentDescription = service.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -220,30 +214,99 @@ fun ServiceDetailsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                Text(
-                    text = service.description,
-                    color = ServiceBody,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp
-                )
+                if (!service.categoryName.isNullOrBlank()) {
+                    Text(
+                        text = service.categoryName,
+                        color = ServiceAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (service.shortDescription.isNotBlank()) {
+                    Text(
+                        text = service.shortDescription,
+                        color = ServiceTitle,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                val longDescription = service.description
+                    .takeIf { it.isNotBlank() && it != service.shortDescription }
+                if (longDescription != null) {
+                    Text(
+                        text = "Description",
+                        color = Color(0xFF6B5A3E),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Serif,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = longDescription,
+                        color = ServiceBody,
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                InclusionCard(
-                    title = "Included",
-                    items = service.included,
-                    isIncluded = true
-                )
+                if (service.included.isNotEmpty()) {
+                    InclusionCard(
+                        title = "Included",
+                        items = service.included,
+                        isIncluded = true
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (service.notIncluded.isNotEmpty()) {
+                    InclusionCard(
+                        title = "Not Included",
+                        items = service.notIncluded,
+                        isIncluded = false
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
-                InclusionCard(
-                    title = "Not Included",
-                    items = service.notIncluded,
-                    isIncluded = false
-                )
+                Spacer(modifier = Modifier.height(10.dp))
 
-                Spacer(modifier = Modifier.height(22.dp))
+                if (reviews.isNotEmpty()) {
+                    Text(
+                        text = "Reviews",
+                        color = Color(0xFF6B5A3E),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Serif,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    reviews.forEach { review ->
+                        Column(modifier = Modifier.padding(bottom = 12.dp)) {
+                            Text(
+                                text = "${review.author}  ·  ${"★".repeat(review.rating.coerceIn(0, 5))}  ·  ${review.date}",
+                                color = ServiceTitle,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (review.body.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = review.body,
+                                    color = ServiceBody,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -417,7 +480,7 @@ private fun InclusionCard(
 
 @Composable
 private fun ProfessionalCard(
-    professional: Professional,
+    professional: ProfessionalInfo,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -432,8 +495,8 @@ private fun ProfessionalCard(
             .background(ServiceCard)
             .padding(vertical = 14.dp, horizontal = 10.dp)
     ) {
-        Image(
-            painter = painterResource(id = professional.imageRes),
+        ProfessionalImage(
+            professional = professional,
             contentDescription = professional.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -450,11 +513,24 @@ private fun ProfessionalCard(
         Text(
             text = professional.role,
             color = ServiceBody,
-            fontSize = 12.sp
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
         )
+        if (professional.bio.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = professional.bio,
+                color = ServiceBody,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "★ ${professional.rating}",
+            text = "★ ${professional.rating} (${professional.reviewCount})",
             color = ServiceStar,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium

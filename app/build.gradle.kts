@@ -10,20 +10,27 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.mytestapplication"
+        applicationId = "com.lookdiva.app"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Overridden per buildType below
+        buildConfigField("String", "API_BASE_URL", "\"https://lookdiva.app/api/\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"https://lookdiva.app/api/\"")
+        }
         release {
             optimization {
                 enable = false
             }
+            buildConfigField("String", "API_BASE_URL", "\"https://lookdiva.app/api/\"")
         }
     }
     compileOptions {
@@ -32,6 +39,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -44,6 +52,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.gson)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.coil.compose)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

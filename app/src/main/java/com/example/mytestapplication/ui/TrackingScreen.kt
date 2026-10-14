@@ -77,15 +77,48 @@ private data class TimelineStep(
     val active: Boolean = false,
 )
 
+private fun trackingSteps(status: String, professionalName: String): List<TimelineStep> {
+    val order = listOf("confirmed", "assigned", "on_the_way", "started", "completed")
+    val current = order.indexOf(status).let { if (it >= 0) it else 0 }
+    val finished = status == "completed" || status == "cancelled"
+    val names = listOf(
+        Triple("Booking Confirmed", "Your reservation was received.", TimelineIcon.Check),
+        Triple(
+            "Professional Assigned",
+            professionalName.ifBlank { "A professional will be assigned." },
+            TimelineIcon.Person,
+        ),
+        Triple("On the Way", "Your professional is heading to you.", TimelineIcon.Car),
+        Triple("Service Started", "The appointment is in progress.", TimelineIcon.Service),
+        Triple("Completed", "Please leave a review.", TimelineIcon.Done),
+    )
+    return names.mapIndexed { index, item ->
+        TimelineStep(
+            title = item.first,
+            subtitle = item.second,
+            time = when {
+                status == "cancelled" -> ""
+                finished || index < current -> "Done"
+                index == current -> "Now"
+                else -> ""
+            },
+            icon = item.third,
+            done = finished || index < current,
+            active = !finished && status != "cancelled" && index == current,
+        )
+    }
+}
+
 @Composable
 fun TrackingScreen(
-    bookingId: String = "#8492",
-    professionalName: String = "Elena R.",
-    etaMinutes: Int = 14,
-    serviceName: String = "Signature Swedish Massage",
-    serviceDuration: String = "90 Minutes",
-    dateTime: String = "Oct 24, 10:00 AM",
-    location: String = "Home",
+    bookingId: String = "",
+    professionalName: String = "",
+    serviceName: String = "",
+    serviceDuration: String = "",
+    dateTime: String = "",
+    location: String = "",
+    status: String = "",
+    totalLabel: String = "",
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onMessageClick: () -> Unit = {},
@@ -93,44 +126,7 @@ fun TrackingScreen(
     onDownloadInvoice: () -> Unit = {},
     onRateServiceClick: () -> Unit = {},
 ) {
-    val steps = listOf(
-        TimelineStep(
-            title = "Booking Confirmed",
-            subtitle = "Your reservation was received.",
-            time = "09:00 AM",
-            icon = TimelineIcon.Check,
-            done = true
-        ),
-        TimelineStep(
-            title = "Professional Assigned",
-            subtitle = "$professionalName will be your therapist.",
-            time = "09:15 AM",
-            icon = TimelineIcon.Person,
-            done = true
-        ),
-        TimelineStep(
-            title = "On the Way",
-            subtitle = "Arriving in approx. $etaMinutes mins.",
-            time = "Now",
-            icon = TimelineIcon.Car,
-            done = false,
-            active = true
-        ),
-        TimelineStep(
-            title = "Service Started",
-            subtitle = "Relax and enjoy.",
-            time = "--:--",
-            icon = TimelineIcon.Service,
-            done = false
-        ),
-        TimelineStep(
-            title = "Completed",
-            subtitle = "Please leave a review.",
-            time = "--:--",
-            icon = TimelineIcon.Done,
-            done = false
-        ),
-    )
+    val steps = trackingSteps(status, professionalName)
 
     Column(
         modifier = modifier
@@ -230,7 +226,14 @@ fun TrackingScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Elena is on the way",
+                        text = when (status) {
+                            "completed" -> "Service completed"
+                            "cancelled" -> "Booking cancelled"
+                            "started" -> "Service in progress"
+                            "assigned" -> "${professionalName.ifBlank { "Your professional" }} is assigned"
+                            "confirmed" -> "Booking confirmed"
+                            else -> "${professionalName.ifBlank { "Your professional" }} is on the way"
+                        },
                         color = TrackingTitle,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
@@ -238,7 +241,8 @@ fun TrackingScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Estimated arrival: $etaMinutes mins",
+                        text = listOf(dateTime, totalLabel).filter { it.isNotBlank() }.joinToString("  ·  ")
+                            .ifBlank { serviceName },
                         color = TrackingBody,
                         fontSize = 13.sp
                     )

@@ -1,7 +1,10 @@
 package com.example.mytestapplication.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,11 +28,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +50,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -55,12 +60,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mytestapplication.R
+import com.example.mytestapplication.data.util.ImageBase64Encoder
 import com.example.mytestapplication.ui.theme.HomeBg
 import com.example.mytestapplication.ui.theme.HomeSubtitle
 import com.example.mytestapplication.ui.theme.HomeTitle
 import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
 import com.example.mytestapplication.ui.theme.WelcomeGold
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class EditProfileFieldIcon {
     Name,
@@ -72,19 +81,34 @@ private enum class EditProfileFieldIcon {
 @Composable
 fun EditProfileScreen(
     modifier: Modifier = Modifier,
-    avatarRes: Int = R.drawable.pro_elena,
+    avatarUrl: String? = null,
     initialName: String = "Alexandra V.",
     initialEmail: String = "alexandra.v@example.com",
     initialPhone: String = "(555) 123-4567",
     initialDob: String = "10-05-15",
+    isSaving: Boolean = false,
     onBackClick: () -> Unit = {},
-    onChangePhotoClick: () -> Unit = {},
-    onSaveClick: (name: String, email: String, phone: String, dob: String) -> Unit = { _, _, _, _ -> },
+    onSaveClick: (name: String, email: String, phone: String, dob: String, avatarBase64: String?) -> Unit =
+        { _, _, _, _, _ -> },
+    onEncodeError: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var fullName by remember { mutableStateOf(initialName) }
     var email by remember { mutableStateOf(initialEmail) }
     var phone by remember { mutableStateOf(initialPhone) }
     var dob by remember { mutableStateOf(initialDob) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isEncoding by remember { mutableStateOf(false) }
+
+    val pickMedia = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) selectedImageUri = uri
+    }
+
+    val previewUrl = selectedImageUri?.toString() ?: avatarUrl
+    val busy = isSaving || isEncoding
 
     Column(
         modifier = modifier
@@ -109,7 +133,7 @@ fun EditProfileScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .clickable(onClick = onBackClick)
+                        .clickable(enabled = !busy, onClick = onBackClick)
                         .align(Alignment.CenterStart)
                 ) {
                     Canvas(modifier = Modifier.size(18.dp)) {
@@ -147,8 +171,9 @@ fun EditProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box {
-                    Image(
-                        painter = painterResource(id = avatarRes),
+                    RemoteImage(
+                        imageUrl = previewUrl,
+                        fallbackRes = R.drawable.pro_elena,
                         contentDescription = "Profile photo",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -165,7 +190,13 @@ fun EditProfileScreen(
                             .shadow(3.dp, CircleShape)
                             .clip(CircleShape)
                             .background(Color(0xFF6B5A3E))
-                            .clickable(onClick = onChangePhotoClick)
+                            .clickable(enabled = !busy) {
+                                pickMedia.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            }
                     ) {
                         Canvas(modifier = Modifier.size(16.dp)) {
                             val stroke = Stroke(
@@ -248,7 +279,28 @@ fun EditProfileScreen(
         }
 
         Button(
-            onClick = { onSaveClick(fullName, email, phone, dob) },
+            onClick = {
+                if (busy) return@Button
+                val uri = selectedImageUri
+                if (uri == null) {
+                    onSaveClick(fullName, email, phone, dob, null)
+                    return@Button
+                }
+                scope.launch {
+                    isEncoding = true
+                    try {
+                        val base64 = withContext(Dispatchers.IO) {
+                            ImageBase64Encoder.encodeJpegDataUri(context, uri)
+                        }
+                        onSaveClick(fullName, email, phone, dob, base64)
+                    } catch (e: Exception) {
+                        onEncodeError(e.message ?: "Could not process image")
+                    } finally {
+                        isEncoding = false
+                    }
+                }
+            },
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
@@ -257,18 +309,28 @@ fun EditProfileScreen(
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF924EB1),
-                contentColor = OtpWhite
+                contentColor = OtpWhite,
+                disabledContainerColor = Color(0xFF924EB1).copy(alpha = 0.6f),
+                disabledContentColor = OtpWhite,
             ),
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = 0.dp,
                 pressedElevation = 0.dp
             )
         ) {
-            Text(
-                text = "Save Changes",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            if (busy) {
+                CircularProgressIndicator(
+                    color = OtpWhite,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(22.dp),
+                )
+            } else {
+                Text(
+                    text = "Save Changes",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

@@ -21,11 +21,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,13 +41,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -51,10 +60,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mytestapplication.ui.theme.HomeBg
 import com.example.mytestapplication.ui.theme.HomeNavInactive
+import com.example.mytestapplication.ui.theme.HomeSearchBg
 import com.example.mytestapplication.ui.theme.HomeSubtitle
 import com.example.mytestapplication.ui.theme.HomeTitle
 import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
+import com.example.mytestapplication.data.api.dto.CategoryDto
 import com.example.mytestapplication.ui.theme.WelcomeGold
 
 private enum class ServicesNavType {
@@ -71,33 +82,35 @@ private data class ServicesNavItem(
 
 private data class ServiceCategoryFilter(
     val label: String,
-    val matches: (ServiceInfo) -> Boolean,
+    val categorySlug: String? = null,
 )
 
 @Composable
 fun ServicesScreen(
     modifier: Modifier = Modifier,
-    services: List<ServiceInfo> = ServiceCatalog.all,
+    services: List<ServiceInfo> = emptyList(),
+    categories: List<CategoryDto> = emptyList(),
+    initialCategorySlug: String? = null,
+    initialSearchQuery: String = "",
     onServiceClick: (ServiceInfo) -> Unit = {},
-    onSearchClick: () -> Unit = {},
+    onSearchSubmit: (String) -> Unit = {},
+    onCategoryFilterChange: (String?) -> Unit = {},
     onNavClick: (String) -> Unit = {},
 ) {
-    var selectedFilter by remember { mutableIntStateOf(0) }
+    var selectedFilter by remember(initialCategorySlug, categories) {
+        val index = if (initialCategorySlug.isNullOrBlank()) {
+            0
+        } else {
+            categories.indexOfFirst { it.slug == initialCategorySlug }.let { if (it >= 0) it + 1 else 0 }
+        }
+        mutableIntStateOf(index)
+    }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
+    var showSearch by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery.isNotBlank()) }
 
-    val filters = remember {
-        listOf(
-            ServiceCategoryFilter("All") { true },
-            ServiceCategoryFilter("Makeup") { it.id.contains("makeup") || it.title.contains("Makeup", true) },
-            ServiceCategoryFilter("Facial") { it.id.contains("facial") || it.title.contains("Facial", true) },
-            ServiceCategoryFilter("Hair") {
-                it.id.contains("hair") || it.id.contains("balayage") ||
-                    it.title.contains("Hair", true) || it.title.contains("Balayage", true)
-            },
-            ServiceCategoryFilter("Massage") {
-                it.id.contains("massage") || it.id.contains("tissue") || it.id.contains("stone") ||
-                    it.title.contains("Massage", true)
-            },
-        )
+    val filters = remember(categories) {
+        listOf(ServiceCategoryFilter("All")) +
+            categories.map { ServiceCategoryFilter(it.name, it.slug) }
     }
 
     val navItems = remember {
@@ -109,8 +122,19 @@ fun ServicesScreen(
         )
     }
 
-    val filtered = remember(selectedFilter, services) {
-        filters[selectedFilter].matches.let { predicate -> services.filter(predicate) }
+    val filtered = remember(selectedFilter, services, filters, searchQuery) {
+        val slug = filters.getOrNull(selectedFilter)?.categorySlug
+        val byCategory = if (slug.isNullOrBlank()) services else services.filter { it.categorySlug == slug }
+        val query = searchQuery.trim()
+        if (query.isEmpty()) {
+            byCategory
+        } else {
+            byCategory.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                    it.shortDescription.contains(query, ignoreCase = true) ||
+                    it.categoryName.orEmpty().contains(query, ignoreCase = true)
+            }
+        }
     }
 
     Column(
@@ -140,7 +164,7 @@ fun ServicesScreen(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .clickable(onClick = onSearchClick)
+                    .clickable(onClick = { showSearch = !showSearch })
                     .align(Alignment.CenterEnd)
             ) {
                 Canvas(modifier = Modifier.size(18.dp)) {
@@ -160,6 +184,51 @@ fun ServicesScreen(
                     )
                 }
             }
+        }
+
+        if (showSearch) {
+            val focusManager = LocalFocusManager.current
+            val keyboardController = LocalSoftwareKeyboardController.current
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                singleLine = true,
+                textStyle = TextStyle(color = HomeTitle, fontSize = 14.sp),
+                cursorBrush = SolidColor(WelcomeGold),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        onSearchSubmit(searchQuery.trim())
+                    }
+                ),
+                decorationBox = { inner ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(23.dp))
+                            .background(HomeSearchBg)
+                            .padding(horizontal = 14.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search services...",
+                                    color = HomeSubtitle,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                            inner()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+            )
         }
 
         Column(
@@ -188,7 +257,10 @@ fun ServicesScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (selected) Color(0xFF6B5A3E) else Color(0xFFF0EEEC))
-                            .clickable { selectedFilter = index }
+                            .clickable {
+                                selectedFilter = index
+                                onCategoryFilterChange(filter.categorySlug)
+                            }
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
@@ -293,8 +365,8 @@ private fun ServiceCatalogCard(
             .clickable(onClick = onClick)
             .padding(12.dp)
     ) {
-        Image(
-            painter = painterResource(id = service.imageRes),
+        ServiceImage(
+            service = service,
             contentDescription = service.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -322,6 +394,19 @@ private fun ServiceCatalogCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            if (!service.categoryName.isNullOrBlank() || service.ratingLabel.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = listOfNotNull(
+                        service.categoryName?.takeIf { it.isNotBlank() },
+                        service.ratingLabel.takeIf { it.isNotBlank() },
+                    ).joinToString("  ·  "),
+                    color = HomeSubtitle,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

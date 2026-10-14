@@ -74,13 +74,13 @@ import com.example.mytestapplication.ui.theme.RegisterIconTint
 fun LoginScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
-    onContinueClick: (credentials: String, password: String) -> Unit = { _, _ -> },
+    onContinueClick: (email: String, password: String) -> Unit = { _, _ -> },
     onForgotPasswordClick: () -> Unit = {},
     onGoogleClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
     onPrivacyClick: () -> Unit = {},
 ) {
-    var credentials by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Column(
@@ -160,10 +160,10 @@ fun LoginScreen(
             Spacer(Modifier.height(40.dp))
 
             LoginInputField(
-                label = "Mobile Number or Email",
-                value = credentials,
-                onValueChange = { credentials = it },
-                placeholder = "Enter your details",
+                label = "Email",
+                value = email,
+                onValueChange = { email = it },
+                placeholder = "Enter your email",
                 keyboardType = KeyboardType.Email,
                 leadingIcon = { drawPersonIcon() }
             )
@@ -196,7 +196,7 @@ fun LoginScreen(
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = { onContinueClick(credentials, password) },
+                onClick = { onContinueClick(email, password) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)

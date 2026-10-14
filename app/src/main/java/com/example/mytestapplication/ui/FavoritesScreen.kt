@@ -1,7 +1,6 @@
 package com.example.mytestapplication.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,7 +38,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,8 +55,8 @@ import com.example.mytestapplication.ui.theme.WelcomeGold
 
 private enum class FavoritesNavType {
     Home,
+    Services,
     Bookings,
-    Wallet,
     Profile,
 }
 
@@ -70,17 +68,20 @@ private data class FavoritesNavItem(
 @Composable
 fun FavoritesScreen(
     modifier: Modifier = Modifier,
+    favoriteServices: List<ServiceInfo> = emptyList(),
+    avatarUrl: String? = null,
     avatarRes: Int = R.drawable.pro_elena,
     onMenuClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onServiceClick: (ServiceInfo) -> Unit = {},
     onStartExploringClick: () -> Unit = {},
     onNavClick: (String) -> Unit = {},
 ) {
     val navItems = remember {
         listOf(
             FavoritesNavItem("Home", FavoritesNavType.Home),
+            FavoritesNavItem("Services", FavoritesNavType.Services),
             FavoritesNavItem("Bookings", FavoritesNavType.Bookings),
-            FavoritesNavItem("Wallet", FavoritesNavType.Wallet),
             FavoritesNavItem("Profile", FavoritesNavType.Profile),
         )
     }
@@ -138,8 +139,9 @@ fun FavoritesScreen(
                     .border(1.5.dp, Color(0xFFE5E1DB), CircleShape)
                     .clickable(onClick = onProfileClick)
             ) {
-                Image(
-                    painter = painterResource(id = avatarRes),
+                RemoteImage(
+                    imageUrl = avatarUrl,
+                    fallbackRes = avatarRes,
                     contentDescription = "Profile",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -149,6 +151,7 @@ fun FavoritesScreen(
             }
         }
 
+        if (favoriteServices.isEmpty()) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -270,6 +273,48 @@ fun FavoritesScreen(
                 }
             }
         }
+        } else {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Saved Services",
+                    color = HomeTitle,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                favoriteServices.forEach { service ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(OtpWhite)
+                            .clickable { onServiceClick(service) }
+                            .padding(12.dp)
+                    ) {
+                        ServiceImage(
+                            service = service,
+                            contentDescription = service.title,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(service.title, color = HomeTitle, fontWeight = FontWeight.SemiBold)
+                            Text(service.price, color = WelcomeGold, fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+        }
 
         Row(
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -327,6 +372,25 @@ private fun FavoritesNavIcon(
                 drawPath(path, color = tint, style = stroke)
             }
 
+            FavoritesNavType.Services -> {
+                drawCircle(
+                    color = tint,
+                    radius = size.minDimension * 0.12f,
+                    center = Offset(size.width * 0.5f, size.height * 0.52f)
+                )
+                for (i in 0 until 5) {
+                    val angle = Math.toRadians((-90.0 + i * 72.0))
+                    val cx = size.width * 0.5f + (size.minDimension * 0.22f * Math.cos(angle)).toFloat()
+                    val cy = size.height * 0.48f + (size.minDimension * 0.22f * Math.sin(angle)).toFloat()
+                    drawCircle(
+                        color = tint,
+                        radius = size.minDimension * 0.14f,
+                        center = Offset(cx, cy),
+                        style = stroke
+                    )
+                }
+            }
+
             FavoritesNavType.Bookings -> {
                 drawRoundRect(
                     color = tint,
@@ -348,23 +412,6 @@ private fun FavoritesNavIcon(
                     end = Offset(size.width * 0.7f, size.height * 0.3f),
                     strokeWidth = 1.8.dp.toPx(),
                     cap = StrokeCap.Round
-                )
-            }
-
-            FavoritesNavType.Wallet -> {
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.14f, size.height * 0.28f),
-                    size = Size(size.width * 0.72f, size.height * 0.5f),
-                    cornerRadius = CornerRadius(2.5.dp.toPx()),
-                    style = stroke
-                )
-                drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(size.width * 0.52f, size.height * 0.42f),
-                    size = Size(size.width * 0.34f, size.height * 0.22f),
-                    cornerRadius = CornerRadius(1.5.dp.toPx()),
-                    style = stroke
                 )
             }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mytestapplication.data.api.dto.NotificationDto
 import com.example.mytestapplication.ui.theme.HomeBg
 import com.example.mytestapplication.ui.theme.HomeSubtitle
 import com.example.mytestapplication.ui.theme.HomeTitle
@@ -52,79 +54,56 @@ import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
 import com.example.mytestapplication.ui.theme.WelcomeGold
 
-private enum class NotificationType {
+enum class NotificationType {
     Booking,
     Offer,
     System,
 }
 
-private data class AppNotification(
+data class AppNotification(
+    val id: String,
     val title: String,
     val body: String,
     val time: String,
     val type: NotificationType,
     val unread: Boolean = false,
+    val bookingId: Int? = null,
 )
+
+fun NotificationDto.toUiItem(): AppNotification {
+    val rawType = type.orEmpty().lowercase()
+    val mappedType = when {
+        rawType.contains("booking") -> NotificationType.Booking
+        rawType.contains("offer") || rawType.contains("promo") -> NotificationType.Offer
+        else -> NotificationType.System
+    }
+    return AppNotification(
+        id = id,
+        title = title?.takeIf { it.isNotBlank() } ?: "Notification",
+        body = body.orEmpty(),
+        time = formatNotificationTime(createdAt),
+        type = mappedType,
+        unread = readAt.isNullOrBlank(),
+        bookingId = bookingId,
+    )
+}
+
+private fun formatNotificationTime(raw: String?): String {
+    val dt = parseApiDateTime(raw) ?: return ""
+    return dt.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a"))
+}
 
 @Composable
 fun NotificationsScreen(
     modifier: Modifier = Modifier,
+    notifications: List<AppNotification> = emptyList(),
+    isLoading: Boolean = false,
     onBackClick: () -> Unit = {},
-    onNotificationClick: (String) -> Unit = {},
+    onNotificationClick: (AppNotification) -> Unit = {},
     onMarkAllRead: () -> Unit = {},
 ) {
     var selectedFilter by remember { mutableIntStateOf(0) }
     val filters = remember { listOf("All", "Bookings", "Offers", "System") }
-
-    val notifications = remember {
-        listOf(
-            AppNotification(
-                title = "Booking Confirmed",
-                body = "Your Bridal Makeup appointment is confirmed for Oct 24, 10:00 AM.",
-                time = "2 min ago",
-                type = NotificationType.Booking,
-                unread = true,
-            ),
-            AppNotification(
-                title = "Pro is on the way",
-                body = "Elena R. is heading to your location. Track live progress now.",
-                time = "28 min ago",
-                type = NotificationType.Booking,
-                unread = true,
-            ),
-            AppNotification(
-                title = "50% Off Luxury Facials",
-                body = "Limited-time offer on premium facials. Book today and save big.",
-                time = "1 hr ago",
-                type = NotificationType.Offer,
-                unread = true,
-            ),
-            AppNotification(
-                title = "Payment Successful",
-                body = "We received your payment of $150 for Bridal Makeup Package.",
-                time = "Yesterday",
-                type = NotificationType.Booking,
-            ),
-            AppNotification(
-                title = "Wallet Cashback",
-                body = "$25 cashback credited to your DIVA Wallet. Use it on your next booking.",
-                time = "Yesterday",
-                type = NotificationType.Offer,
-            ),
-            AppNotification(
-                title = "Privacy Policy Updated",
-                body = "We've updated our privacy policy. Tap to review the latest changes.",
-                time = "2 days ago",
-                type = NotificationType.System,
-            ),
-            AppNotification(
-                title = "Rate your service",
-                body = "How was your Signature Facial with Isabella R.? Share a quick review.",
-                time = "3 days ago",
-                type = NotificationType.System,
-            ),
-        )
-    }
 
     val filtered = remember(selectedFilter, notifications) {
         when (selectedFilter) {
@@ -225,26 +204,45 @@ fun NotificationsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (filtered.isEmpty()) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 64.dp)
-                ) {
-                    Text(
-                        text = "No notifications here",
-                        color = HomeSubtitle,
-                        fontSize = 14.sp
-                    )
+            when {
+                isLoading && notifications.isEmpty() -> {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 64.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF6B5A3E),
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
                 }
-            } else {
-                filtered.forEach { item ->
-                    NotificationRow(
-                        notification = item,
-                        onClick = { onNotificationClick(item.title) }
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+
+                filtered.isEmpty() -> {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 64.dp)
+                    ) {
+                        Text(
+                            text = "No notifications here",
+                            color = HomeSubtitle,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                else -> {
+                    filtered.forEach { item ->
+                        NotificationRow(
+                            notification = item,
+                            onClick = { onNotificationClick(item) }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
             }
 
@@ -411,6 +409,17 @@ private fun NotificationTypeIcon(type: NotificationType) {
 @Composable
 private fun NotificationsScreenPreview() {
     MyTestApplicationTheme(dynamicColor = false) {
-        NotificationsScreen()
+        NotificationsScreen(
+            notifications = listOf(
+                AppNotification(
+                    id = "1",
+                    title = "Booking Confirmed",
+                    body = "Your Bridal Makeup appointment is confirmed.",
+                    time = "2026-09-07 14:32",
+                    type = NotificationType.Booking,
+                    unread = true,
+                )
+            )
+        )
     }
 }

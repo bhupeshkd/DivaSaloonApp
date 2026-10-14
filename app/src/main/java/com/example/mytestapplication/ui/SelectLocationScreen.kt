@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,43 +68,65 @@ import com.example.mytestapplication.ui.theme.LocationSearchBg
 import com.example.mytestapplication.ui.theme.LocationTitle
 import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
+import com.example.mytestapplication.data.api.dto.AddressDto
 
 private data class SavedAddress(
     val title: String,
     val line: String,
     val isHome: Boolean,
+    val address: AddressDto,
 )
 
 @Composable
 fun SelectLocationScreen(
     modifier: Modifier = Modifier,
-    initialQuery: String = "123 Luxury Lane",
-    selectedTitle: String = "123 Luxury Lane",
-    selectedSubtitle: String = "Beverly Hills, CA 90210",
+    addresses: List<AddressDto> = emptyList(),
+    initialQuery: String = "",
+    selectedTitle: String = "Select address",
+    selectedSubtitle: String = "",
     onBackClick: () -> Unit = {},
-    onAddAddressClick: () -> Unit = {},
-    onAddressMenuClick: (String) -> Unit = {},
-    onConfirmClick: (String, String) -> Unit = { _, _ -> },
+    onAddressMenuClick: (AddressDto) -> Unit = {},
+    onConfirmClick: (AddressDto) -> Unit = {},
+    isLocating: Boolean = false,
+    detectedTitle: String? = null,
+    detectedSubtitle: String? = null,
+    onUseCurrentLocation: () -> Unit = {},
+    onConfirmCurrentLocation: () -> Unit = {},
 ) {
     var searchQuery by remember { mutableStateOf(initialQuery) }
     var selectedIndex by remember { mutableIntStateOf(-1) }
+    var usingCurrent by remember { mutableStateOf(false) }
 
-    val saved = remember {
-        listOf(
-            SavedAddress("Home", "456 Serenity Blvd, Apt 4B", isHome = true),
-            SavedAddress("Work", "789 Corporate Drive, Suite 100", isHome = false),
+    LaunchedEffect(detectedTitle, detectedSubtitle) {
+        if (!detectedTitle.isNullOrBlank()) {
+            usingCurrent = true
+            selectedIndex = -1
+        }
+    }
+
+    val saved = remember(addresses) {
+        addresses.map { address ->
+            SavedAddress(
+                title = address.displayTitle(),
+                line = address.displayLine(),
+                isHome = address.label.equals("Home", ignoreCase = true) || address.isDefault,
+                address = address,
+            )
+        }
+    }
+
+    val displayTitle = when {
+        usingCurrent && !detectedTitle.isNullOrBlank() -> detectedTitle
+        selectedIndex >= 0 -> saved[selectedIndex].line.substringBefore(",")
+        else -> selectedTitle
+    }
+    val displaySubtitle = when {
+        usingCurrent && !detectedSubtitle.isNullOrBlank() -> detectedSubtitle
+        selectedIndex >= 0 -> saved[selectedIndex].line.substringAfter(
+            ", ",
+            missingDelimiterValue = saved[selectedIndex].line,
         )
-    }
-
-    val displayTitle = if (selectedIndex >= 0) {
-        saved[selectedIndex].line.substringBefore(",")
-    } else {
-        selectedTitle
-    }
-    val displaySubtitle = if (selectedIndex >= 0) {
-        saved[selectedIndex].line.substringAfter(", ", missingDelimiterValue = saved[selectedIndex].line)
-    } else {
-        selectedSubtitle
+        else -> selectedSubtitle
     }
 
     Column(
@@ -295,10 +318,11 @@ fun SelectLocationScreen(
                         address = address,
                         selected = selectedIndex == index,
                         onClick = {
+                            usingCurrent = false
                             selectedIndex = index
                             searchQuery = address.line.substringBefore(",")
                         },
-                        onMenuClick = { onAddressMenuClick(address.title) }
+                        onMenuClick = { onAddressMenuClick(address.address) }
                     )
                     if (index < saved.lastIndex) {
                         Spacer(modifier = Modifier.height(10.dp))
@@ -326,10 +350,10 @@ fun SelectLocationScreen(
                             )
                         }
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable(onClick = onAddAddressClick)
+                        .clickable(enabled = !isLocating, onClick = onUseCurrentLocation)
                 ) {
                     Text(
-                        text = "+ Add New Address",
+                        text = if (isLocating) "Finding current location..." else "Use current location",
                         color = LocationAccent,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -342,14 +366,12 @@ fun SelectLocationScreen(
 
         Button(
             onClick = {
-                onConfirmClick(
-                    if (selectedIndex >= 0) saved[selectedIndex].title else "Home Address",
-                    if (selectedIndex >= 0) {
-                        saved[selectedIndex].line
-                    } else {
-                        "$selectedTitle, $selectedSubtitle"
-                    }
-                )
+                if (usingCurrent) {
+                    onConfirmCurrentLocation()
+                    return@Button
+                }
+                val address = saved.getOrNull(selectedIndex)?.address ?: addresses.firstOrNull()
+                if (address != null) onConfirmClick(address)
             },
             modifier = Modifier
                 .fillMaxWidth()

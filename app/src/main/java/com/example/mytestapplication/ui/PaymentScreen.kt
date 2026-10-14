@@ -66,17 +66,13 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private enum class PayMethod {
-    Card,
-    Upi,
-    Wallet,
     Cash,
 }
 
 @Composable
 fun PaymentScreen(
-    service: ServiceInfo = ServiceCatalog.swedishMassage,
+    service: ServiceInfo = ServiceSamples.preview,
     scheduleLabel: String = "Tomorrow, 10:00 AM",
-    walletBalance: String = "$50.00",
     taxRate: Double = 0.1041667,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
@@ -85,7 +81,7 @@ fun PaymentScreen(
 ) {
     var coupon by remember { mutableStateOf("") }
     var appliedDiscount by remember { mutableStateOf(0.0) }
-    var selectedPay by remember { mutableStateOf(PayMethod.Card) }
+    var selectedPay by remember { mutableStateOf(PayMethod.Cash) }
 
     val subtotal = remember(service.price) { parseMoney(service.price) }
     val taxes = remember(subtotal, taxRate) {
@@ -172,8 +168,8 @@ fun PaymentScreen(
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(id = service.imageRes),
+                    ServiceImage(
+                        service = service,
                         contentDescription = service.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -337,35 +333,20 @@ fun PaymentScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             PayMethodCard(
-                selected = selectedPay == PayMethod.Card,
-                title = "Credit / Debit Card",
-                subtitle = "**** **** **** 4242",
-                onClick = { selectedPay = PayMethod.Card },
-                icon = { CardIcon() }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            PayMethodCard(
-                selected = selectedPay == PayMethod.Upi,
-                title = "UPI",
-                subtitle = "GPay, PhonePe, Paytm",
-                onClick = { selectedPay = PayMethod.Upi },
-                icon = { UpiIcon() }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            PayMethodCard(
-                selected = selectedPay == PayMethod.Wallet,
-                title = "Diva Wallet",
-                subtitle = "Balance: $walletBalance",
-                onClick = { selectedPay = PayMethod.Wallet },
-                icon = { WalletIcon() }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            PayMethodCard(
                 selected = selectedPay == PayMethod.Cash,
                 title = "Cash at Venue",
-                subtitle = "Pay when you arrive",
+                subtitle = "Pay when the professional arrives",
                 onClick = { selectedPay = PayMethod.Cash },
                 icon = { CashIcon() }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            PayMethodCard(
+                selected = false,
+                enabled = false,
+                title = "Online Payment",
+                subtitle = "UPI, cards & wallets — coming soon",
+                onClick = {},
+                icon = { OnlineSoonIcon() }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -388,7 +369,7 @@ fun PaymentScreen(
             )
         ) {
             Text(
-                text = "Confirm & Pay $totalLabel",
+                text = "Confirm Booking $totalLabel",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -424,7 +405,9 @@ private fun PayMethodCard(
     subtitle: String,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
+    enabled: Boolean = true,
 ) {
+    val alpha = if (enabled) 1f else 0.55f
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -435,13 +418,13 @@ private fun PayMethodCard(
                 ambientColor = Color.Black.copy(alpha = 0.04f)
             )
             .clip(RoundedCornerShape(14.dp))
-            .background(PaymentCard)
+            .background(PaymentCard.copy(alpha = alpha))
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = if (selected) PaymentSelectedBorder else PaymentBorder,
                 shape = RoundedCornerShape(14.dp)
             )
-            .clickable(onClick = onClick)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 14.dp, vertical = 14.dp)
     ) {
         Box(
@@ -491,70 +474,22 @@ private fun PayMethodCard(
 }
 
 @Composable
-private fun CardIcon() {
+private fun OnlineSoonIcon() {
     Canvas(modifier = Modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
         drawRoundRect(
             color = PaymentAccent,
-            topLeft = Offset(size.width * 0.08f, size.height * 0.22f),
-            size = Size(size.width * 0.84f, size.height * 0.58f),
-            cornerRadius = CornerRadius(2.5.dp.toPx()),
-            style = stroke
-        )
-        drawLine(
-            color = PaymentAccent,
-            start = Offset(size.width * 0.08f, size.height * 0.42f),
-            end = Offset(size.width * 0.92f, size.height * 0.42f),
-            strokeWidth = 2.dp.toPx()
-        )
-    }
-}
-
-@Composable
-private fun UpiIcon() {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
-        drawRoundRect(
-            color = PaymentAccent,
-            topLeft = Offset(size.width * 0.15f, size.height * 0.18f),
-            size = Size(size.width * 0.7f, size.height * 0.64f),
+            topLeft = Offset(size.width * 0.12f, size.height * 0.3f),
+            size = Size(size.width * 0.76f, size.height * 0.46f),
             cornerRadius = CornerRadius(2.dp.toPx()),
             style = stroke
         )
         drawLine(
             color = PaymentAccent,
-            start = Offset(size.width * 0.28f, size.height * 0.4f),
-            end = Offset(size.width * 0.72f, size.height * 0.4f),
+            start = Offset(size.width * 0.2f, size.height * 0.42f),
+            end = Offset(size.width * 0.8f, size.height * 0.42f),
             strokeWidth = 1.5.dp.toPx(),
             cap = StrokeCap.Round
-        )
-        drawLine(
-            color = PaymentAccent,
-            start = Offset(size.width * 0.28f, size.height * 0.55f),
-            end = Offset(size.width * 0.58f, size.height * 0.55f),
-            strokeWidth = 1.5.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun WalletIcon() {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val stroke = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
-        drawRoundRect(
-            color = PaymentAccent,
-            topLeft = Offset(size.width * 0.1f, size.height * 0.22f),
-            size = Size(size.width * 0.8f, size.height * 0.56f),
-            cornerRadius = CornerRadius(2.5.dp.toPx()),
-            style = stroke
-        )
-        drawRoundRect(
-            color = PaymentAccent,
-            topLeft = Offset(size.width * 0.55f, size.height * 0.38f),
-            size = Size(size.width * 0.35f, size.height * 0.24f),
-            cornerRadius = CornerRadius(1.5.dp.toPx()),
-            style = stroke
         )
     }
 }
@@ -580,10 +515,10 @@ private fun CashIcon() {
 }
 
 private fun parseMoney(value: String): Double =
-    value.replace("$", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
+    value.replace("₹", "").replace("$", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
 
 private fun formatMoney(value: Double): String =
-    String.format(Locale.US, "$%.2f", value)
+    String.format(Locale.US, "₹%.2f", value)
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
