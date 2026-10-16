@@ -44,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mytestapplication.R
+import com.example.mytestapplication.data.api.dto.BookingStatusEventDto
 import com.example.mytestapplication.ui.theme.MyTestApplicationTheme
 import com.example.mytestapplication.ui.theme.OtpWhite
 import com.example.mytestapplication.ui.theme.TrackingAccent
@@ -77,10 +78,17 @@ private data class TimelineStep(
     val active: Boolean = false,
 )
 
-private fun trackingSteps(status: String, professionalName: String): List<TimelineStep> {
+private fun trackingSteps(
+    status: String,
+    professionalName: String,
+    statusEvents: List<BookingStatusEventDto>,
+): List<TimelineStep> {
     val order = listOf("confirmed", "assigned", "on_the_way", "started", "completed")
     val current = order.indexOf(status).let { if (it >= 0) it else 0 }
     val finished = status == "completed" || status == "cancelled"
+    val eventsByStatus = statusEvents
+        .groupBy { it.status.lowercase() }
+        .mapValues { (_, list) -> list.maxByOrNull { it.occurredAt.orEmpty() } }
     val names = listOf(
         Triple("Booking Confirmed", "Your reservation was received.", TimelineIcon.Check),
         Triple(
@@ -93,11 +101,15 @@ private fun trackingSteps(status: String, professionalName: String): List<Timeli
         Triple("Completed", "Please leave a review.", TimelineIcon.Done),
     )
     return names.mapIndexed { index, item ->
+        val key = order[index]
+        val event = eventsByStatus[key]
+        val stamp = formatTrackingStamp(event?.occurredAt)
         TimelineStep(
             title = item.first,
-            subtitle = item.second,
+            subtitle = event?.message?.takeIf { it.isNotBlank() } ?: item.second,
             time = when {
                 status == "cancelled" -> ""
+                stamp.isNotBlank() -> stamp
                 finished || index < current -> "Done"
                 index == current -> "Now"
                 else -> ""
@@ -118,7 +130,9 @@ fun TrackingScreen(
     dateTime: String = "",
     location: String = "",
     status: String = "",
+    statusEvents: List<BookingStatusEventDto> = emptyList(),
     totalLabel: String = "",
+    isLiveUpdating: Boolean = false,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onMessageClick: () -> Unit = {},
@@ -126,7 +140,7 @@ fun TrackingScreen(
     onDownloadInvoice: () -> Unit = {},
     onRateServiceClick: () -> Unit = {},
 ) {
-    val steps = trackingSteps(status, professionalName)
+    val steps = trackingSteps(status, professionalName, statusEvents)
 
     Column(
         modifier = modifier
@@ -207,16 +221,23 @@ fun TrackingScreen(
 
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val live = isLiveUpdating &&
+                            status !in listOf("completed", "cancelled")
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(TrackingLive)
+                                .background(if (live) TrackingLive else TrackingInactive)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "LIVE TRACKING",
-                            color = TrackingLive,
+                            text = when {
+                                status == "completed" -> "DELIVERED"
+                                status == "cancelled" -> "CANCELLED"
+                                live -> "LIVE TRACKING"
+                                else -> "TRACKING"
+                            },
+                            color = if (live) TrackingLive else TrackingBody,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.8.sp

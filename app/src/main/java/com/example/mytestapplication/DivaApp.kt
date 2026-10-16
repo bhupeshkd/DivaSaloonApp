@@ -2,11 +2,13 @@ package com.example.mytestapplication
 
 import android.Manifest
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -15,11 +17,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.ComponentActivity
 import com.example.mytestapplication.BuildConfig
 import com.example.mytestapplication.data.api.dto.AddressDto
 import com.example.mytestapplication.data.api.dto.AvailabilitySlotDto
 import com.example.mytestapplication.data.api.dto.BookingDto
 import com.example.mytestapplication.data.api.dto.CategoryDto
+import com.example.mytestapplication.data.api.dto.CreateAddressRequest
 import com.example.mytestapplication.data.api.dto.CreateBookingRequest
 import com.example.mytestapplication.data.api.dto.FavoriteDto
 import com.example.mytestapplication.data.api.dto.ProfessionalDto
@@ -31,6 +35,7 @@ import com.example.mytestapplication.data.repository.ApiResult
 import com.example.mytestapplication.data.repository.AuthRepository
 import com.example.mytestapplication.data.repository.DivaRepository
 import com.example.mytestapplication.data.repository.OtpPurpose
+import com.example.mytestapplication.ui.AddAddressScreen
 import com.example.mytestapplication.ui.AppSideMenu
 import com.example.mytestapplication.ui.AuthSuccessScreen
 import com.example.mytestapplication.ui.BookingSuccessScreen
@@ -72,6 +77,8 @@ import com.example.mytestapplication.ui.toServiceInfo
 import com.example.mytestapplication.ui.toUi
 import com.example.mytestapplication.ui.toUiItem
 import com.example.mytestapplication.ui.tomorrowDateString
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -88,6 +95,7 @@ private enum class AppScreen {
     ServiceDetails,
     Checkout,
     SelectLocation,
+    AddAddress,
     Payment,
     PaymentSuccess,
     BookingSuccess,
@@ -123,6 +131,7 @@ fun DivaApp() {
     var pendingOtp by remember { mutableStateOf<PendingOtpSession?>(null) }
     var isAuthLoading by remember { mutableStateOf(false) }
     var isDataLoading by remember { mutableStateOf(false) }
+    var isSavingAddress by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
     var currentUser by remember { mutableStateOf<UserDto?>(null) }
@@ -156,6 +165,8 @@ fun DivaApp() {
     var servicesSearchQuery by remember { mutableStateOf<String?>(null) }
     var returnToServices by remember { mutableStateOf(false) }
     var selectLocationReturnScreen by remember { mutableStateOf(AppScreen.Checkout) }
+    var selectLocationBackScreen by remember { mutableStateOf(AppScreen.Checkout) }
+    var trackingReturnScreen by remember { mutableStateOf(AppScreen.BookingSuccess) }
     var showSideMenu by remember { mutableStateOf(false) }
     var infoReturnScreen by remember { mutableStateOf(AppScreen.Profile) }
 
@@ -340,14 +351,18 @@ fun DivaApp() {
                 }
                 is ApiResult.Error -> {
                     if (isAuthError(result.message)) {
-                        authRepository.logout()
-                        loadPublicHomeData()
+                        authRepository.clearLocalSession()
+                        currentUser = null
+                        currentScreen = AppScreen.Login
+                        isDataLoading = false
+                        return
                     } else {
                         showError(result.message)
                     }
                 }
             }
         } else {
+            // Explicit guest browse (Welcome → Continue as Guest) only.
             favoriteServices = emptyList()
             favoriteRecords = emptyList()
             loadPublicHomeData()
@@ -514,7 +529,55 @@ fun DivaApp() {
     fun openHome() {
         currentScreen = AppScreen.Home
         scope.launch { loadHomeData() }
-        requestCurrentLocation(explicit = false)
+        // Do not auto-prompt location on every Home open — system dialog blocks the UI.
+        // Location is fetched only when already granted, or when user taps the location chip.
+        if (locationReader.hasPermission()) {
+            publishLocation(explicit = false)
+        } else if (homeLocation == "Locating..." || homeLocation.isBlank()) {
+            homeLocation = "Set location"
+        }
+    }
+
+    fun handleSystemBack() {
+        when (currentScreen) {
+            AppScreen.Splash, AppScreen.Home -> (context as? ComponentActivity)?.finish()
+            AppScreen.Login -> currentScreen = AppScreen.Welcome
+            AppScreen.Welcome, AppScreen.AuthSuccess -> currentScreen = AppScreen.Login
+            AppScreen.Register, AppScreen.Otp -> currentScreen = AppScreen.Welcome
+            AppScreen.Tracking -> currentScreen = trackingReturnScreen
+            AppScreen.RateService -> currentScreen = AppScreen.Tracking
+            AppScreen.AddAddress -> currentScreen = AppScreen.SelectLocation
+            AppScreen.SelectLocation -> currentScreen = selectLocationBackScreen
+            AppScreen.Checkout -> currentScreen = AppScreen.ServiceDetails
+            AppScreen.Payment -> currentScreen = AppScreen.Checkout
+            AppScreen.PaymentSuccess, AppScreen.BookingSuccess -> openHome()
+            AppScreen.ServiceDetails -> {
+                if (returnToServices) {
+                    returnToServices = false
+                    currentScreen = AppScreen.Services
+                } else {
+                    openHome()
+                }
+            }
+            AppScreen.EditProfile, AppScreen.PaymentMethods, AppScreen.Favorites ->
+                currentScreen = AppScreen.Profile
+            AppScreen.Coupons, AppScreen.Referral, AppScreen.HelpCenter,
+            AppScreen.Faqs, AppScreen.PrivacyPolicy ->
+                currentScreen = infoReturnScreen
+            AppScreen.Notifications -> openHome()
+            AppScreen.Bookings, AppScreen.Services, AppScreen.Profile -> openHome()
+        }
+    }
+
+    BackHandler(enabled = true) {
+        handleSystemBack()
+    }
+
+    fun openTracking(booking: BookingDto, returnScreen: AppScreen) {
+        lastBooking = booking
+        paidAmount = formatMoney(booking.totalFormatted, booking.total)
+        trackingReturnScreen = returnScreen
+        currentScreen = AppScreen.Tracking
     }
 
     fun navigateToOtp(phone: String, purpose: OtpPurpose, response: com.example.mytestapplication.data.api.dto.OtpResponse) {
@@ -536,6 +599,19 @@ fun DivaApp() {
         }
     }
 
+    /** Book Now → select location first (required), then checkout. */
+    fun startBookingWithLocation(backScreen: AppScreen = AppScreen.ServiceDetails) {
+        requireAuth {
+            scope.launch {
+                refreshAddresses()
+                loadAvailabilityForBooking()
+                selectLocationReturnScreen = AppScreen.Checkout
+                selectLocationBackScreen = backScreen
+                currentScreen = AppScreen.SelectLocation
+            }
+        }
+    }
+
     fun handleMenuItem(item: String) {
         showSideMenu = false
         when (item) {
@@ -553,6 +629,7 @@ fun DivaApp() {
             "Edit Profile" -> requireAuth { currentScreen = AppScreen.EditProfile }
             "Saved Address" -> requireAuth {
                 selectLocationReturnScreen = AppScreen.Profile
+                selectLocationBackScreen = AppScreen.Profile
                 scope.launch {
                     refreshAddresses()
                     currentScreen = AppScreen.SelectLocation
@@ -583,12 +660,23 @@ fun DivaApp() {
                     scope.launch {
                         if (authRepository.restoreSession()) {
                             when (val me = divaRepository.getMe()) {
-                                is ApiResult.Success -> currentUser = me.data
-                                is ApiResult.Error -> Unit
+                                is ApiResult.Success -> {
+                                    currentUser = me.data
+                                    openHome()
+                                }
+                                is ApiResult.Error -> {
+                                    if (isAuthError(me.message)) {
+                                        authRepository.clearLocalSession()
+                                        currentUser = null
+                                        currentScreen = AppScreen.Login
+                                    } else {
+                                        // Token present; network/API blip — keep session, open home.
+                                        openHome()
+                                    }
+                                }
                             }
-                            openHome()
                         } else {
-                            currentScreen = AppScreen.Welcome
+                            currentScreen = AppScreen.Login
                         }
                     }
                 },
@@ -759,7 +847,18 @@ fun DivaApp() {
                     location = homeLocation,
                     categories = categories,
                     featuredServices = featuredServices,
-                    onLocationClick = { requestCurrentLocation(explicit = true) },
+                    onLocationClick = {
+                        if (authRepository.isLoggedIn) {
+                            selectLocationReturnScreen = AppScreen.Home
+                            selectLocationBackScreen = AppScreen.Home
+                            scope.launch {
+                                refreshAddresses()
+                                currentScreen = AppScreen.SelectLocation
+                            }
+                        } else {
+                            requestCurrentLocation(explicit = true)
+                        }
+                    },
                     onFilterClick = { openServices() },
                     onSearchSubmit = { query -> openServices(query = query) },
                     onNotificationClick = {
@@ -775,14 +874,10 @@ fun DivaApp() {
                         }
                     },
                     onTrendingBookClick = { service ->
-                        requireAuth {
-                            scope.launch {
-                                loadServiceDetail(service.id)
-                                returnToServices = false
-                                refreshAddresses()
-                                loadAvailabilityForBooking()
-                                currentScreen = AppScreen.Checkout
-                            }
+                        scope.launch {
+                            loadServiceDetail(service.id)
+                            returnToServices = false
+                            startBookingWithLocation(backScreen = AppScreen.Home)
                         }
                     },
                     onFavoriteClick = { service ->
@@ -869,13 +964,9 @@ fun DivaApp() {
                     showToast("All professionals are listed above")
                 },
                 onBookNowClick = {
-                    requireAuth {
-                        scope.launch {
-                            if (!ensureBookingAddress()) return@launch
-                            loadAvailabilityForBooking()
-                            currentScreen = AppScreen.Checkout
-                        }
-                    }
+                    startBookingWithLocation(
+                        backScreen = if (returnToServices) AppScreen.Services else AppScreen.ServiceDetails,
+                    )
                 },
             )
         }
@@ -894,12 +985,20 @@ fun DivaApp() {
                     scope.launch {
                         refreshAddresses()
                         selectLocationReturnScreen = AppScreen.Checkout
+                        selectLocationBackScreen = AppScreen.Checkout
                         currentScreen = AppScreen.SelectLocation
                     }
                 },
                 onConfirmBookingClick = {
                     scope.launch {
-                        if (!ensureBookingAddress()) return@launch
+                        if (selectedAddress == null) {
+                            showToast("Select a location for this service")
+                            selectLocationReturnScreen = AppScreen.Checkout
+                            selectLocationBackScreen = AppScreen.Checkout
+                            refreshAddresses()
+                            currentScreen = AppScreen.SelectLocation
+                            return@launch
+                        }
                         loadAvailabilityForBooking()
                         if (selectedSlot == null) {
                             showToast("No available time slots for tomorrow")
@@ -915,18 +1014,26 @@ fun DivaApp() {
             SelectLocationScreen(
                 modifier = Modifier.fillMaxSize(),
                 addresses = addresses,
+                selectedTitle = bookingAddressTitle,
+                selectedSubtitle = bookingAddressLine,
                 isLocating = isLocating,
                 detectedTitle = detectedLocation?.title,
                 detectedSubtitle = detectedLocation?.subtitle,
-                onBackClick = { currentScreen = selectLocationReturnScreen },
+                onBackClick = { currentScreen = selectLocationBackScreen },
                 onUseCurrentLocation = { requestCurrentLocation(explicit = true) },
                 onConfirmCurrentLocation = { confirmDetectedLocation() },
+                onAddAddressClick = { currentScreen = AppScreen.AddAddress },
                 onAddressMenuClick = { address ->
                     scope.launch {
                         when (val result = divaRepository.deleteAddress(address.id)) {
                             is ApiResult.Success -> {
                                 showToast("Address removed")
                                 refreshAddresses()
+                                if (selectedAddress?.id == address.id) {
+                                    selectedAddress = null
+                                    bookingAddressTitle = "Select address"
+                                    bookingAddressLine = ""
+                                }
                             }
                             is ApiResult.Error -> showError(result.message)
                         }
@@ -936,9 +1043,38 @@ fun DivaApp() {
                     selectedAddress = address
                     bookingAddressTitle = address.displayTitle()
                     bookingAddressLine = address.displayLine()
+                    if (selectLocationReturnScreen == AppScreen.Home) {
+                        homeLocation = address.displayTitle()
+                    }
                     currentScreen = selectLocationReturnScreen
                     if (selectLocationReturnScreen == AppScreen.Profile) {
                         showToast("Selected ${address.displayTitle()}")
+                    }
+                },
+            )
+        }
+
+        AppScreen.AddAddress -> {
+            AddAddressScreen(
+                modifier = Modifier.fillMaxSize(),
+                isSaving = isSavingAddress,
+                makeDefaultByDefault = addresses.isEmpty(),
+                onBackClick = { currentScreen = AppScreen.SelectLocation },
+                onSaveClick = { request: CreateAddressRequest ->
+                    scope.launch {
+                        isSavingAddress = true
+                        when (val result = divaRepository.createAddress(request)) {
+                            is ApiResult.Success -> {
+                                showToast("Address saved")
+                                refreshAddresses()
+                                selectedAddress = result.data
+                                bookingAddressTitle = result.data.displayTitle()
+                                bookingAddressLine = result.data.displayLine()
+                                currentScreen = AppScreen.SelectLocation
+                            }
+                            is ApiResult.Error -> showError(result.message)
+                        }
+                        isSavingAddress = false
                     }
                 },
             )
@@ -956,7 +1092,14 @@ fun DivaApp() {
                 },
                 onConfirmPayClick = { total ->
                     scope.launch {
-                        if (!ensureBookingAddress()) return@launch
+                        if (selectedAddress == null) {
+                            showToast("Select a location for this service")
+                            selectLocationReturnScreen = AppScreen.Payment
+                            selectLocationBackScreen = AppScreen.Payment
+                            refreshAddresses()
+                            currentScreen = AppScreen.SelectLocation
+                            return@launch
+                        }
                         loadAvailabilityForBooking()
                         val service = selectedService
                         val professional = selectedProfessional
@@ -981,6 +1124,7 @@ fun DivaApp() {
                             is ApiResult.Success -> {
                                 lastBooking = result.data
                                 paidAmount = formatMoney(result.data.totalFormatted, result.data.total)
+                                trackingReturnScreen = AppScreen.BookingSuccess
                                 currentScreen = AppScreen.PaymentSuccess
                                 refreshBookings()
                             }
@@ -1004,12 +1148,28 @@ fun DivaApp() {
             BookingSuccessScreen(
                 amount = paidAmount,
                 modifier = Modifier.fillMaxSize(),
-                onTrackBookingClick = { currentScreen = AppScreen.Tracking },
+                onTrackBookingClick = {
+                    lastBooking?.let { openTracking(it, AppScreen.BookingSuccess) }
+                        ?: run { currentScreen = AppScreen.Tracking }
+                },
                 onBackToHomeClick = { openHome() },
             )
         }
 
         AppScreen.Tracking -> {
+            val trackingId = lastBooking?.id
+            LaunchedEffect(trackingId, currentScreen) {
+                val id = trackingId ?: return@LaunchedEffect
+                while (isActive) {
+                    when (val result = divaRepository.getBooking(id)) {
+                        is ApiResult.Success -> lastBooking = result.data
+                        is ApiResult.Error -> Unit
+                    }
+                    val status = lastBooking?.status.orEmpty()
+                    if (status == "completed" || status == "cancelled") break
+                    delay(5_000)
+                }
+            }
             TrackingScreen(
                 modifier = Modifier.fillMaxSize(),
                 bookingId = lastBooking?.publicNumber?.let { "#$it" } ?: lastBooking?.id?.let { "#$it" }.orEmpty(),
@@ -1024,8 +1184,10 @@ fun DivaApp() {
                 ).filter { !it.isNullOrBlank() }.joinToString(", "),
                 location = lastBooking?.address?.displayLine() ?: bookingAddressLine,
                 status = lastBooking?.status.orEmpty(),
+                statusEvents = lastBooking?.statusEvents.orEmpty(),
                 totalLabel = paidAmount,
-                onBackClick = { currentScreen = AppScreen.BookingSuccess },
+                isLiveUpdating = lastBooking?.status !in listOf("completed", "cancelled"),
+                onBackClick = { currentScreen = trackingReturnScreen },
                 onMessageClick = { showToast("Chat coming soon") },
                 onCallClick = { showToast("Calling coming soon") },
                 onDownloadInvoice = { showToast("Invoices coming soon") },
@@ -1082,7 +1244,7 @@ fun DivaApp() {
                         addresses = emptyList()
                         notifications = emptyList()
                         unreadNotificationCount = 0
-                        currentScreen = AppScreen.Welcome
+                        currentScreen = AppScreen.Login
                     }
                 },
                 onNavClick = { tab ->
@@ -1178,6 +1340,9 @@ fun DivaApp() {
                 avatarUrl = currentUser?.avatarUrl,
                 onMenuClick = { showSideMenu = true },
                 onProfileClick = { currentScreen = AppScreen.Profile },
+                onTrackClick = { booking ->
+                    openTracking(booking.booking, AppScreen.Bookings)
+                },
                 onRescheduleClick = { booking ->
                     scope.launch {
                         val serviceId = booking.booking.service?.id

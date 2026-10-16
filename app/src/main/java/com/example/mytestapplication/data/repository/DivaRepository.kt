@@ -93,6 +93,10 @@ class DivaRepository(context: Context) {
         api.createBooking(request).data
     }
 
+    suspend fun getBooking(id: Int): ApiResult<BookingDto> = apiCall {
+        api.getBooking(id).data
+    }
+
     suspend fun cancelBooking(id: Int): ApiResult<BookingDto> = apiCall {
         api.cancelBooking(id).data
     }

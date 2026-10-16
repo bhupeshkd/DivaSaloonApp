@@ -87,9 +87,18 @@ class AuthRepository(context: Context) {
         )
     }
 
-    suspend fun logout(): ApiResult<Unit> = apiCall {
-        api.logout()
+    suspend fun clearLocalSession() {
         tokenStore.clearToken()
+    }
+
+    suspend fun logout(): ApiResult<Unit> {
+        val result = apiCall {
+            api.logout()
+            Unit
+        }
+        // Always drop local session so reopen never keeps a stale guest/token state.
+        tokenStore.clearToken()
+        return result
     }
 
     companion object {

@@ -189,6 +189,19 @@ fun formatBookingTime(start: String?, end: String?): String {
     return if (endLabel.isBlank()) startLabel else "$startLabel - $endLabel"
 }
 
+/** Short stamp for Flipkart-style tracking timeline (e.g. "Today, 2:30 PM"). */
+fun formatTrackingStamp(iso: String?): String {
+    val dt = parseApiDateTime(iso) ?: return ""
+    val today = LocalDate.now()
+    val dayLabel = when (dt.toLocalDate()) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> dt.format(DateTimeFormatter.ofPattern("MMM d"))
+    }
+    val time = dt.format(DateTimeFormatter.ofPattern("h:mm a"))
+    return "$dayLabel, $time"
+}
+
 fun tomorrowDateString(): String = LocalDate.now().plusDays(1).toString()
 
 object ServiceSamples {

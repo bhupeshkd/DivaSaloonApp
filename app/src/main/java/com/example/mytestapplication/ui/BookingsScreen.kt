@@ -75,6 +75,7 @@ fun BookingsScreen(
     avatarRes: Int = R.drawable.pro_elena,
     onMenuClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onTrackClick: (BookingUiItem) -> Unit = {},
     onRescheduleClick: (BookingUiItem) -> Unit = {},
     onCancelClick: (BookingUiItem) -> Unit = {},
     onRebookClick: (BookingUiItem) -> Unit = {},
@@ -239,6 +240,7 @@ fun BookingsScreen(
                 displayList.forEach { booking ->
                     BookingCard(
                         booking = booking,
+                        onTrackClick = { onTrackClick(booking) },
                         onRescheduleClick = { onRescheduleClick(booking) },
                         onCancelClick = { onCancelClick(booking) },
                         onRebookClick = { onRebookClick(booking) },
@@ -307,6 +309,7 @@ private fun isUpcomingStatus(status: String): Boolean =
 @Composable
 private fun BookingCard(
     booking: BookingUiItem,
+    onTrackClick: () -> Unit,
     onRescheduleClick: () -> Unit,
     onCancelClick: () -> Unit,
     onRebookClick: () -> Unit,
@@ -473,51 +476,72 @@ private fun BookingCard(
 
             when {
                 isUpcomingStatus(booking.status) -> {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
                                 .height(44.dp)
                                 .clip(RoundedCornerShape(22.dp))
-                                .border(1.5.dp, WelcomeGold, RoundedCornerShape(22.dp))
-                                .clickable(onClick = onRescheduleClick)
+                                .background(Color(0xFF6B5A3E))
+                                .clickable(onClick = onTrackClick)
                         ) {
                             Text(
-                                text = "Reschedule",
-                                color = WelcomeGold,
+                                text = "Track Booking",
+                                color = OtpWhite,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, Color(0xFFF0D0D0), RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFDF6F6))
-                                .clickable(onClick = onCancelClick)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Canvas(modifier = Modifier.size(14.dp)) {
-                                drawLine(
-                                    color = Color(0xFFE05A5A),
-                                    start = Offset(size.width * 0.15f, size.height * 0.15f),
-                                    end = Offset(size.width * 0.85f, size.height * 0.85f),
-                                    strokeWidth = 2.dp.toPx(),
-                                    cap = StrokeCap.Round
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .border(1.5.dp, WelcomeGold, RoundedCornerShape(22.dp))
+                                    .clickable(onClick = onRescheduleClick)
+                            ) {
+                                Text(
+                                    text = "Reschedule",
+                                    color = WelcomeGold,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                drawLine(
-                                    color = Color(0xFFE05A5A),
-                                    start = Offset(size.width * 0.85f, size.height * 0.15f),
-                                    end = Offset(size.width * 0.15f, size.height * 0.85f),
-                                    strokeWidth = 2.dp.toPx(),
-                                    cap = StrokeCap.Round
-                                )
+                            }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, Color(0xFFF0D0D0), RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFFDF6F6))
+                                    .clickable(onClick = onCancelClick)
+                            ) {
+                                Canvas(modifier = Modifier.size(14.dp)) {
+                                    drawLine(
+                                        color = Color(0xFFE05A5A),
+                                        start = Offset(size.width * 0.15f, size.height * 0.15f),
+                                        end = Offset(size.width * 0.85f, size.height * 0.85f),
+                                        strokeWidth = 2.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+                                    drawLine(
+                                        color = Color(0xFFE05A5A),
+                                        start = Offset(size.width * 0.85f, size.height * 0.15f),
+                                        end = Offset(size.width * 0.15f, size.height * 0.85f),
+                                        strokeWidth = 2.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+                                }
                             }
                         }
                     }

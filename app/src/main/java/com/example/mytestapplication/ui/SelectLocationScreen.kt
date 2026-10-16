@@ -87,6 +87,7 @@ fun SelectLocationScreen(
     onBackClick: () -> Unit = {},
     onAddressMenuClick: (AddressDto) -> Unit = {},
     onConfirmClick: (AddressDto) -> Unit = {},
+    onAddAddressClick: () -> Unit = {},
     isLocating: Boolean = false,
     detectedTitle: String? = null,
     detectedSubtitle: String? = null,
@@ -313,23 +314,62 @@ fun SelectLocationScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                saved.forEachIndexed { index, address ->
-                    SavedAddressRow(
-                        address = address,
-                        selected = selectedIndex == index,
-                        onClick = {
-                            usingCurrent = false
-                            selectedIndex = index
-                            searchQuery = address.line.substringBefore(",")
-                        },
-                        onMenuClick = { onAddressMenuClick(address.address) }
+                if (saved.isEmpty()) {
+                    Text(
+                        text = "No saved addresses yet. Add one below.",
+                        color = LocationBody,
+                        fontSize = 13.sp
                     )
-                    if (index < saved.lastIndex) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else {
+                    saved.forEachIndexed { index, address ->
+                        SavedAddressRow(
+                            address = address,
+                            selected = selectedIndex == index,
+                            onClick = {
+                                usingCurrent = false
+                                selectedIndex = index
+                                searchQuery = address.line.substringBefore(",")
+                            },
+                            onMenuClick = { onAddressMenuClick(address.address) }
+                        )
+                        if (index < saved.lastIndex) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                     }
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .drawBehind {
+                            drawRoundRect(
+                                color = LocationDashed,
+                                style = Stroke(
+                                    width = 1.5.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(
+                                        floatArrayOf(10f, 8f),
+                                        0f
+                                    )
+                                ),
+                                cornerRadius = CornerRadius(14.dp.toPx())
+                            )
+                        }
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(onClick = onAddAddressClick)
+                ) {
+                    Text(
+                        text = "+ Add new address",
+                        color = LocationAccent,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Box(
                     contentAlignment = Alignment.Center,

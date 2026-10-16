@@ -19,6 +19,9 @@ local.properties
 *.aab
 *.dex
 *.class
+*.jks
+*.keystore
+keystore.properties
 .idea/shelf/
 .idea/httpRequests/
 *.log
